@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}System Settings{% endblock %}
+
+{% block content %}
+<style>
+  .set-breadcrumb { font-size:.78rem; color:#64748b; margin-bottom:.35rem; }
+  .set-breadcrumb a { color:#3b82f6; text-decoration:none; }
+  .set-breadcrumb a:hover { text-decoration:underline; }
+  .form-grid { display:grid; grid-template-columns:1fr 290px; gap:1.5rem; align-items:start; }
+  @media(max-width:960px){ .form-grid{ grid-template-columns:1fr; } }
+  .form-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+  .form-card-header { padding:1.25rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; }
+  .form-card-header .hdr-icon { width:40px; height:40px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+  .form-card-header h5 { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
+  .form-card-header p { margin:.1rem 0 0; font-size:.78rem; color:#64748b; }
+  .form-card-body { padding:1.5rem; }
+  .section-divider { display:flex; align-items:center; gap:.75rem; margin:1.5rem 0 1rem; }
+  .section-divider:first-child { margin-top:0; }
+  .section-divider span { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; white-space:nowrap; }
+  .section-divider::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+  .form-control, .form-select { border-color:#e2e8f0; font-size:.875rem; border-radius:8px!important; transition:border-color .2s,box-shadow .2s; }
+  .form-control:focus, .form-select:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+  .form-label { font-size:.8rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
+  .form-text { font-size:.75rem; color:#94a3b8; margin-top:.3rem; }
+  .input-group .input-group-text { background:#f8fafc; border-color:#e2e8f0; color:#64748b; font-size:.82rem; font-weight:600; }
+  .form-actions { display:flex; gap:.75rem; padding-top:1.25rem; border-top:1px solid #f1f5f9; margin-top:1.5rem; }
+  .btn-save { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600; font-size:.875rem; padding:.55rem 1.5rem; border-radius:8px; display:flex; align-items:center; gap:.4rem; transition:background .2s; }
+  .btn-save:hover { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+  /* sidebar */
+  .summary-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:1.5rem; }
+  .summary-card-hdr { padding:1rem 1.25rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color:#0f172a; }
+  .summary-card-hdr i { color:#3b82f6; }
+  .summary-body { padding:1rem 1.25rem; }
+  .summary-row { display:flex; flex-direction:column; gap:.15rem; padding:.55rem 0; border-bottom:1px solid #f1f5f9; }
+  .summary-row:last-child { border-bottom:none; }
+  .summary-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+  .summary-val { font-size:.875rem; font-weight:600; color:#0f172a; min-height:1.2em; word-break:break-word; }
+  .summary-val.ph { color:#cbd5e1; font-weight:400; font-style:italic; }
+  .tip-box { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:.75rem 1rem; font-size:.78rem; color:#92400e; margin-top:1rem; }
+  .tip-box i { color:#f59e0b; }
+</style>
+
+<!-- Breadcrumb -->
+<div class="set-breadcrumb mb-1">
+  <a href="{% url 'core:dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>System Settings</span>
+</div>
+
+<!-- Page header -->
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-gear-fill text-primary me-2"></i>System Settings</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">Configure program defaults, organization details, and system behavior.</p>
+  </div>
+</div>
+
+{% with settings_dict=settings|dictsort:"key" %}
+{% comment %}Build a lookup by key{% endcomment %}
+{% endwith %}
+
+{% comment %}Collect settings into a dict-like structure for easy access{% endcomment %}
+{% for s in settings %}{% if s.key == "org_name" %}{% with org_name_val=s.value %}{% endwith %}{% endif %}{% endfor %}
+
+<form method="post" id="settingsForm">
+{% csrf_token %}
+
+<div class="form-grid">
+  <!-- ── Main form card ── -->
+  <div class="form-card">
+    <div class="form-card-header">
+      <div class="hdr-icon"><i class="bi bi-sliders"></i></div>
+      <div>
+        <h5>Configuration</h5>
+        <p>All changes take effect immediately after saving.</p>
+      </div>
+    </div>
+
+    <div class="form-card-body">
+
+      <!-- ── Organization ── -->
+      <div class="section-divider"><span><i class="bi bi-building me-1"></i>Organization</span></div>
+      {% for s in settings %}
+        {% if s.key == "org_name" %}
+        <div class="mb-3">
+          <label class="form-label">Organization / Program Name</label>
+          <input type="text" name="setting_{{ s.key }}" value="{{ s.value }}"
+                 class="form-control" id="field_org_name" placeholder="e.g. e-BAHAGI Program">
+          {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% if s.key == "org_address" %}
+        <div class="mb-3">
+          <label class="form-label">Organization Address</label>
+          <input type="text" name="setting_{{ s.key }}" value="{{ s.value }}"
+                 class="form-control" id="field_org_address" placeholder="Street, City, Province">
+          {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+
+      <!-- ── Program Rules ── -->
+      <div class="section-divider"><span><i class="bi bi-sliders2 me-1"></i>Program Rules</span></div>
+      {% for s in settings %}
+        {% if s.key == "income_threshold" %}
+        <div class="mb-3">
+          <label class="form-label">Monthly Income Threshold</label>
+          <div class="input-group">
+            <span class="input-group-text">₱</span>
+            <input type="number" min="0" step="100" name="setting_{{ s.key }}" value="{{ s.value }}"
+                   class="form-control" id="field_income_threshold" placeholder="15000">
+          </div>
+          {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% if s.key == "grant_cooldown_months" %}
+        <div class="mb-3">
+          <label class="form-label">Grant Cooldown Period</label>
+          <div class="input-group">
+            <input type="number" min="0" step="1" name="setting_{{ s.key }}" value="{{ s.value }}"
+                   class="form-control" id="field_grant_cooldown" placeholder="3">
+            <span class="input-group-text">months</span>
+          </div>
+          {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+
+      <!-- ── Contact ── -->
+      <div class="section-divider"><span><i class="bi bi-envelope me-1"></i>Contact Information</span></div>
+      {% for s in settings %}
+        {% if s.key == "contact_email" %}
+        <div class="mb-3">
+          <label class="form-label">Contact Email</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+            <input type="email" name="setting_{{ s.key }}" value="{{ s.value }}"
+                   class="form-control" id="field_contact_email" placeholder="info@example.gov.ph">
+          </div>
+          {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% if s.key == "contact_phone" %}
+        <div class="mb-3">
+          <label class="form-label">Contact Phone</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+            <input type="tel" name="setting_{{ s.key }}" value="{{ s.value }}"
+                   class="form-control" id="field_contact_phone" placeholder="+63 912 345 6789">
+          </div>
+          {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+
+      <!-- ── Actions ── -->
+      <div class="form-actions">
+        <button type="submit" class="btn btn-save">
+          <i class="bi bi-check2-circle"></i> Save Settings
+        </button>
+        <button type="reset" class="btn" style="font-size:.875rem;padding:.55rem 1.25rem;border-radius:8px;color:#64748b;border:1px solid #e2e8f0;background:#fff;">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+        </button>
+      </div>
+
+    </div><!-- /form-card-body -->
+  </div><!-- /form-card -->
+
+  <!-- ── Sidebar ── -->
+  <div>
+    <div class="summary-card">
+      <div class="summary-card-hdr">
+        <i class="bi bi-info-circle-fill"></i> Current Values
+      </div>
+      <div class="summary-body">
+        {% for s in settings %}
+        <div class="summary-row">
+          <span class="summary-lbl">
+            {% if s.key == "org_name" %}Organization Name
+            {% elif s.key == "org_address" %}Address
+            {% elif s.key == "income_threshold" %}Income Threshold
+            {% elif s.key == "grant_cooldown_months" %}Cooldown Period
+            {% elif s.key == "contact_email" %}Email
+            {% elif s.key == "contact_phone" %}Phone
+            {% else %}{{ s.key }}
+            {% endif %}
+          </span>
+          <span class="summary-val {% if not s.value %}ph{% endif %}" id="preview_{{ s.key }}">
+            {% if s.value %}
+              {% if s.key == "income_threshold" %}₱{{ s.value|floatformat:0 }}
+              {% elif s.key == "grant_cooldown_months" %}{{ s.value }} month{{ s.value|pluralize }}
+              {% else %}{{ s.value }}
+              {% endif %}
+            {% else %}—{% endif %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="tip-box mt-3">
+      <i class="bi bi-lightbulb-fill me-1"></i>
+      <strong>Tip:</strong> Income threshold and cooldown period are used as system-wide defaults.
+      Individual programs may override these values.
+    </div>
+
+    {% if user.is_superuser or user.profile.role == 'admin' %}
+    <div class="summary-card mt-3">
+      <div class="summary-card-hdr">
+        <i class="bi bi-shield-lock-fill"></i> Data security
+      </div>
+      <div class="summary-body">
+        <p style="font-size:.82rem;color:#64748b;margin:0 0 .85rem;line-height:1.45">
+          Download or restore a full system backup (database + media files).
+        </p>
+        <a href="{% url 'settings_mgmt:backup_restore' %}"
+           class="btn btn-sm w-100"
+           style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-weight:600;border-radius:8px;">
+          <i class="bi bi-shield-lock me-1"></i> Open Backup &amp; Restore
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div><!-- /sidebar -->
+
+</div><!-- /form-grid -->
+</form>
+
+<script>
+// Live preview in sidebar
+(function(){
+  const map = {
+    'field_org_name':       'preview_org_name',
+    'field_org_address':    'preview_org_address',
+    'field_income_threshold':'preview_income_threshold',
+    'field_grant_cooldown': 'preview_grant_cooldown_months',
+    'field_contact_email':  'preview_contact_email',
+    'field_contact_phone':  'preview_contact_phone',
+  };
+  Object.entries(map).forEach(([inputId, previewId]) => {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (!input || !preview) return;
+    input.addEventListener('input', () => {
+      let val = input.value.trim();
+      if (!val) { preview.textContent = '—'; preview.classList.add('ph'); return; }
+      preview.classList.remove('ph');
+      if (inputId === 'field_income_threshold') {
+        const n = parseFloat(val);
+        preview.textContent = isNaN(n) ? val : '₱' + n.toLocaleString('en-PH', {maximumFractionDigits:0});
+      } else if (inputId === 'field_grant_cooldown') {
+        preview.textContent = val + ' month' + (val == '1' ? '' : 's');
+      } else {
+        preview.textContent = val;
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

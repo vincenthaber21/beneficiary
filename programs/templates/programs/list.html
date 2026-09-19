@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Assistance Programs{% endblock %}
+{% block content %}
+<div class="page-hdr">
+  <h2><i class="bi bi-journal-bookmark text-primary"></i> Assistance Programs</h2>
+  <a href="{% url 'programs:create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Program</a>
+</div>
+<div class="panel">
+  <div class="panel-hdr"><span>All Programs ({{ programs.count }})</span></div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Budget</th>
+          <th>Spent</th>
+          <th>Remaining</th>
+          <th>Income Threshold</th>
+          <th>Cooldown</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Grants</th>
+          <th>Eligible Beneficiaries</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in programs %}
+        <tr>
+          <td class="fw-semibold">{{ p.name }}</td>
+          <td>₱{{ p.budget|floatformat:2 }}</td>
+          <td class="text-danger">₱{{ p.spent|floatformat:2 }}</td>
+          <td class="fw-semibold {% if p.remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+            ₱{{ p.remaining|floatformat:2 }}
+            {% if p.remaining < 0 %}<i class="bi bi-exclamation-triangle-fill ms-1" title="Over budget"></i>{% endif %}
+          </td>
+          <td>₱{{ p.income_threshold|floatformat:2 }}</td>
+          <td>{{ p.grant_cooldown_months }} mo.</td>
+          <td>{{ p.start_date }}</td>
+          <td>{{ p.end_date|default:"—" }}</td>
+          <td>{{ p.grant_count }}</td>
+          <td>
+            <span class="badge {% if p.eligible_count > 0 %}bg-success{% else %}bg-secondary{% endif %} fs-6 px-2">
+              {{ p.eligible_count }}
+            </span>
+            <small class="text-muted ms-1">qualified</small>
+          </td>
+          <td>
+            {% if p.is_active %}<span class="badge bg-success">Active</span>
+            {% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{% url 'programs:update' p.pk %}" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'programs:delete' p.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="12" class="text-center text-muted py-4">No programs yet. <a href="{% url 'programs:create' %}">Add one</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

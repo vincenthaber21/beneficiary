@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ citizen.full_name }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'idcard.css' %}">{% endblock %}
+{% block content %}
+<style>
+  .cr-back{font-size:.8rem;color:#64748b;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;margin-bottom:.75rem}
+  .cr-back:hover{color:#2563eb}
+  .profile-hero{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:1.25rem 1.5rem;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:1.25rem}
+  .profile-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+  .profile-identity{display:flex;align-items:center;gap:1rem;min-width:0}
+  .avatar{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;font-size:1.15rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:.02em}
+  .profile-name{margin:0;font-size:1.35rem;font-weight:700;color:#0f172a;line-height:1.25;word-break:break-word}
+  .profile-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+  .reg-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;color:#1d4ed8;background:#eff6ff;padding:.2rem .55rem;border-radius:6px;border:1px solid #bfdbfe}
+  .pill{font-size:.72rem;font-weight:700;padding:.22rem .65rem;border-radius:99px}
+  .pill-active{background:#dcfce7;color:#15803d}
+  .pill-inactive{background:#f1f5f9;color:#64748b}
+  .pill-deceased{background:#fee2e2;color:#b91c1c}
+  .pill-moved{background:#fff7ed;color:#c2410c}
+  .quick-facts{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-top:1.1rem;padding-top:1.1rem;border-top:1px solid #f1f5f9}
+  @media(max-width:900px){.quick-facts{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.quick-facts{grid-template-columns:1fr}}
+  .qf{min-width:0}
+  .qf-lbl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:.15rem}
+  .qf-val{font-size:.9rem;font-weight:600;color:#0f172a;word-break:break-word}
+  .qf-val.muted{color:#94a3b8;font-weight:500}
+  .fp-chip{display:inline-flex;align-items:center;gap:.35rem;font-size:.75rem;font-weight:600;padding:.28rem .65rem;border-radius:99px;margin:.15rem .2rem .15rem 0;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+  .fp-chip.primary{background:#dcfce7;color:#15803d;border-color:#bbf7d0}
+  .fp-row-detail{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.65rem 0;border-bottom:1px solid #f1f5f9}
+  .fp-row-detail:last-child{border-bottom:0;padding-bottom:0}
+  .fp-row-detail:first-child{padding-top:0}
+  .detail-grid{display:grid;grid-template-columns:1fr 340px;gap:1.25rem;align-items:start}
+  @media(max-width:960px){.detail-grid{grid-template-columns:1fr}}
+  .card-s{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:1rem;overflow:hidden}
+  .card-s-h{padding:.8rem 1.15rem;border-bottom:1px solid #f1f5f9;font-size:.85rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:.45rem}
+  .card-s-h i{color:#3b82f6}
+  .card-s-b{padding:1rem 1.15rem}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem 1.25rem}
+  @media(max-width:640px){.info-grid{grid-template-columns:1fr}}
+  .info-item .lbl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:.15rem}
+  .info-item .val{font-size:.9rem;font-weight:600;color:#0f172a;word-break:break-word}
+  .info-item .val.empty{color:#cbd5e1;font-weight:500}
+  .info-item.full{grid-column:1 / -1}
+  .tag{display:inline-block;font-size:.75rem;font-weight:600;padding:.28rem .65rem;border-radius:99px;margin:.15rem .2rem .15rem 0;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+  .tag-health{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+  .empty-note{font-size:.85rem;color:#94a3b8;margin:0}
+  .fam-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.65rem 0;border-bottom:1px solid #f1f5f9}
+  .fam-row:last-child{border-bottom:0;padding-bottom:0}
+  .fam-row:first-child{padding-top:0}
+  .fam-name{font-size:.9rem;font-weight:600;color:#0f172a}
+  .fam-sub{font-size:.75rem;color:#64748b;margin-top:.1rem}
+  .fam-rel{font-size:.72rem;font-weight:700;color:#2563eb;background:#eff6ff;padding:.2rem .55rem;border-radius:99px;white-space:nowrap}
+  .id-side{position:sticky;top:1.25rem}
+  .id-side .card-s-b{padding:1rem}
+  .actions{display:flex;gap:.5rem;flex-wrap:wrap}
+</style>
+
+<a href="{% url 'citizens:list' %}" class="cr-back"><i class="bi bi-arrow-left"></i> Citizen Registry</a>
+
+<div class="profile-hero">
+  <div class="profile-top">
+    <div class="profile-identity">
+      <div class="avatar">{{ citizen.first_name|slice:":1" }}{{ citizen.last_name|slice:":1" }}</div>
+      <div>
+        <h1 class="profile-name">{{ citizen.full_name }}</h1>
+        <div class="profile-meta">
+          <span class="reg-no">{{ citizen.registry_no|default:"No ID yet" }}</span>
+          <span class="pill pill-{{ citizen.status }}">{{ citizen.get_status_display }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <a href="{% url 'citizens:id_card' citizen.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-printer"></i> Print ID</a>
+      <a href="{% url 'citizens:update' citizen.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
+      <a href="{% url 'citizens:delete' citizen.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Delete</a>
+    </div>
+  </div>
+
+  <div class="quick-facts">
+    <div class="qf">
+      <div class="qf-lbl">Contact</div>
+      <div class="qf-val{% if not citizen.contact_number %} muted{% endif %}">{{ citizen.contact_number|default:"Not set" }}</div>
+    </div>
+    <div class="qf">
+      <div class="qf-lbl">Barangay</div>
+      <div class="qf-val{% if not citizen.barangay %} muted{% endif %}">{{ citizen.barangay|default:"Not set" }}</div>
+    </div>
+    <div class="qf">
+      <div class="qf-lbl">RFID Tag</div>
+      <div class="qf-val{% if not citizen.rfid_tag %} muted{% endif %}">{{ citizen.rfid_tag|default:"Not set" }}</div>
+    </div>
+    <div class="qf">
+      <div class="qf-lbl">Fingerprints</div>
+      <div class="qf-val{% if not citizen.fingerprints.all %} muted{% endif %}">
+        {% with fps=citizen.fingerprints.all %}
+          {% if fps %}{{ fps|length }} registered{% else %}Not set{% endif %}
+        {% endwith %}
+      </div>
+    </div>
+    <div class="qf">
+      <div class="qf-lbl">Registered</div>
+      <div class="qf-val">{{ citizen.date_registered }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <div>
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-person"></i> About</div>
+      <div class="card-s-b">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="lbl">Date of Birth</div>
+            <div class="val{% if not citizen.date_of_birth %} empty{% endif %}">{% if citizen.date_of_birth %}{{ citizen.date_of_birth|date:"M d, Y" }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Sex</div>
+            <div class="val{% if not citizen.sex %} empty{% endif %}">{{ citizen.get_sex_display|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Civil Status</div>
+            <div class="val{% if not citizen.civil_status %} empty{% endif %}">{{ citizen.get_civil_status_display|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Religion</div>
+            <div class="val{% if not citizen.religion %} empty{% endif %}">{{ citizen.religion|default:"—" }}</div>
+          </div>
+          <div class="info-item full">
+            <div class="lbl">Education</div>
+            <div class="val{% if not citizen.education %} empty{% endif %}">{{ citizen.get_education_display|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-geo-alt"></i> Address</div>
+      <div class="card-s-b">
+        <div class="info-grid">
+          <div class="info-item full">
+            <div class="lbl">House / Building</div>
+            <div class="val{% if not citizen.address %} empty{% endif %}">{{ citizen.address|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Barangay</div>
+            <div class="val{% if not citizen.barangay %} empty{% endif %}">{{ citizen.barangay|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">City / Municipality</div>
+            <div class="val">{{ citizen.municipality|default:"Bacnotan" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Province</div>
+            <div class="val">{{ citizen.province|default:"La Union" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-briefcase"></i> Work</div>
+      <div class="card-s-b">
+        <div class="info-grid">
+          <div class="info-item full">
+            <div class="lbl">Monthly Income</div>
+            <div class="val{% if not citizen.income_range %} empty{% endif %}">{{ citizen.get_income_range_display|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Occupation 1</div>
+            <div class="val{% if not citizen.occupation_1 %} empty{% endif %}">{{ citizen.get_occupation_1_display|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Occupation 2</div>
+            <div class="val{% if not citizen.occupation_2 %} empty{% endif %}">{{ citizen.get_occupation_2_display|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Occupation 3</div>
+            <div class="val{% if not citizen.occupation_3 %} empty{% endif %}">{{ citizen.get_occupation_3_display|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-fingerprint"></i> Fingerprints</div>
+      <div class="card-s-b">
+        {% for fp in citizen.fingerprints.all %}
+        <div class="fp-row-detail">
+          <div>
+            <div class="fam-name">{{ fp.get_finger_display }}{% if fp.is_primary %} <span class="fp-chip primary">Primary</span>{% endif %}</div>
+            <div class="fam-sub">
+              {% if fp.template_data %}<code style="font-size:.75rem">{{ fp.template_data|truncatechars:36 }}</code>{% else %}Image only{% endif %}
+              {% if fp.quality %} · Quality {{ fp.quality }}{% endif %}
+              {% if fp.device_name %} · {{ fp.device_name }}{% endif %}
+            </div>
+          </div>
+          <span class="fam-rel">{{ fp.registered_at|date:"M d, Y" }}</span>
+        </div>
+        {% empty %}
+        <p class="empty-note">No fingerprints registered yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-people"></i> Family</div>
+      <div class="card-s-b">
+        {% for fm in citizen.family_members.all %}
+        <div class="fam-row">
+          <div>
+            <div class="fam-name">{{ fm.display_name }}</div>
+            <div class="fam-sub">{{ fm.display_citizen_id }}</div>
+          </div>
+          <span class="fam-rel">{{ fm.relationship|default:"Member" }}</span>
+        </div>
+        {% empty %}
+        <p class="empty-note">No family members added.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-card-heading"></i> IDs &amp; notes</div>
+      <div class="card-s-b">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="lbl">PhilSys ID</div>
+            <div class="val{% if not citizen.philsys_id %} empty{% endif %}">{{ citizen.philsys_id|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Voter's ID</div>
+            <div class="val{% if not citizen.voter_id %} empty{% endif %}">{{ citizen.voter_id|default:"—" }}</div>
+          </div>
+          <div class="info-item full">
+            <div class="lbl">Other ID</div>
+            <div class="val{% if not citizen.other_id_type and not citizen.other_id_number %} empty{% endif %}">
+              {% if citizen.other_id_type or citizen.other_id_number %}
+                {{ citizen.other_id_type|default:"ID" }}: {{ citizen.other_id_number|default:"—" }}
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          <div class="info-item full">
+            <div class="lbl">Notes</div>
+            <div class="val{% if not citizen.notes %} empty{% endif %}">{{ citizen.notes|default:"—"|linebreaksbr }}</div>
+          </div>
+          {% if citizen.attachment %}
+          <div class="info-item full">
+            <div class="lbl">Attachment</div>
+            <div class="val"><a href="{{ citizen.attachment.url }}" target="_blank"><i class="bi bi-paperclip"></i> {{ citizen.attachment.name|cut:"citizen_attachments/" }}</a></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="id-side">
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-person-vcard-fill" style="color:#f97316"></i> e-Bahagi ID</div>
+      <div class="card-s-b">
+        {% include "beneficiaries/_id_card.html" with card=card %}
+        <a href="{% url 'citizens:id_card' citizen.pk %}" class="btn btn-warning btn-sm w-100 mt-3">
+          <i class="bi bi-printer"></i> Print ID Card
+        </a>
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-shield-check"></i> Vulnerable groups</div>
+      <div class="card-s-b">
+        {% for label in citizen.vulnerable_labels %}
+        <span class="tag">{{ label }}</span>
+        {% empty %}
+        <p class="empty-note">None listed</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card-s">
+      <div class="card-s-h"><i class="bi bi-heart-pulse"></i> Health conditions</div>
+      <div class="card-s-b">
+        {% for label in citizen.health_labels %}
+        <span class="tag tag-health">{{ label }}</span>
+        {% empty %}
+        <p class="empty-note">None listed</p>
+        {% endfor %}
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

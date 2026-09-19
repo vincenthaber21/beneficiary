@@ -1,0 +1,58 @@
+{% comment %}
+Reusable e-Bahagi ID card. Expects in context:
+  card.beneficiary, card.id_number, card.address_line, card.qr_svg
+and the global system_logo (from context processor).
+Value spans have ids so live previews (e.g. the citizen add form) can update
+the same card without duplicating markup.
+{% endcomment %}
+<div class="ecard">
+  <div class="band-top"></div>
+  <div class="band-bottom"></div>
+  <div class="blob"></div>
+
+  <div class="hdr">
+    {% if system_logo.has_logo %}
+    <img class="seal seal-img" src="{{ system_logo.logo.url }}" alt="{{ system_logo.alt_text }}">
+    {% else %}
+    <div class="seal">LA<br>UNION</div>
+    {% endif %}
+    <div class="gov">
+      <p>Republic of the Philippines</p>
+      <p>Province of La Union</p>
+      <h1>MUNICIPALITY OF BACNOTAN</h1>
+      <div class="rule"></div>
+    </div>
+  </div>
+
+  <div class="title">
+    <span class="e">e-</span><span class="b">Bahagi</span><span class="id">ID</span>
+  </div>
+
+  <div class="idno">
+    <span class="k">ID No.:</span><span class="v" id="idc-idno">{{ card.id_number }}</span>
+  </div>
+
+  <div class="photo">
+    {% if card.qr_svg %}
+    {{ card.qr_svg }}
+    <div class="cap">Scan to verify / tap to claim</div>
+    {% else %}
+    <div class="ph-note">QR added<br>after saving</div>
+    {% endif %}
+  </div>
+
+  <div class="fields">
+    <div class="frow"><span class="lbl">Last Name</span><span class="val" id="idc-last">{{ card.beneficiary.last_name }}</span></div>
+    <div class="frow"><span class="lbl">First Name</span><span class="val" id="idc-first">{{ card.beneficiary.first_name }}</span></div>
+    <div class="frow"><span class="lbl">Middle Name</span><span class="val" id="idc-middle">{{ card.beneficiary.middle_name|default:"" }}</span></div>
+    <div class="frow"><span class="lbl">Birthdate</span><span class="val" id="idc-bdate">{% if card.beneficiary.date_of_birth %}{{ card.beneficiary.date_of_birth|date:"M d, Y" }}{% else %}&nbsp;{% endif %}</span></div>
+    <div class="frow"><span class="lbl">Address</span><span class="val" id="idc-addr" style="font-size:1.6cqw">{{ card.address_line }}</span></div>
+  </div>
+
+  <div class="sign">
+    <div class="space">
+      <img class="sig-img" id="idc-sig" alt="Signature"{% if card.beneficiary.signature %} src="{{ card.beneficiary.signature }}"{% else %} style="display:none"{% endif %}>
+    </div>
+    <div class="line">Signature</div>
+  </div>
+</div>

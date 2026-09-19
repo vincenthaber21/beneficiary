@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Citizen Registry{% endblock %}
+{% block content %}
+<style>
+  .status-active{background:#dcfce7;color:#15803d;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
+  .status-inactive{background:#f1f5f9;color:#64748b;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
+  .status-deceased{background:#fee2e2;color:#b91c1c;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
+  .status-moved{background:#fff7ed;color:#c2410c;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
+  .reg-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;color:#475569;background:#f8fafc;padding:.15rem .45rem;border-radius:6px;border:1px solid #e2e8f0}
+</style>
+
+<div class="page-hdr">
+  <div>
+    <h2><i class="bi bi-person-vcard text-primary"></i> Citizen Registry</h2>
+    <small class="text-muted">Master list of registered citizens / residents</small>
+  </div>
+  <a href="{% url 'citizens:create' %}" class="btn btn-primary">
+    <i class="bi bi-person-plus"></i> Add Citizen
+  </a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <div class="stat-val">{{ total }}</div>
+      <div class="stat-lbl">Shown</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <div class="stat-val" style="color:#15803d">{{ count_active }}</div>
+      <div class="stat-lbl">Active</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <div class="stat-val" style="color:#64748b">{{ count_inactive }}</div>
+      <div class="stat-lbl">Other status</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel mb-3">
+  <div class="p-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Search</label>
+        <input type="text" name="q" value="{{ q }}" class="form-control"
+               placeholder="Name, registry no., PhilSys, contact…">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Status</label>
+        <select name="status" class="form-select">
+          <option value="">All statuses</option>
+          {% for val, lbl in status_choices %}
+          <option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Barangay</label>
+        <select name="barangay" class="form-select">
+          <option value="">All barangays</option>
+          {% for b in barangays %}
+          <option value="{{ b }}" {% if barangay == b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto d-flex gap-2">
+        <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        <a href="{% url 'citizens:list' %}" class="btn btn-outline-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-hdr">
+    <span>{{ total }} citizen{{ total|pluralize }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Registry No.</th>
+          <th>Name</th>
+          <th>Sex</th>
+          <th>Birth Date</th>
+          <th>Barangay</th>
+          <th>Contact</th>
+          <th>Status</th>
+          <th>Registered</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in citizens %}
+        <tr>
+          <td><span class="reg-no">{{ c.registry_no|default:"—" }}</span></td>
+          <td>
+            <a href="{% url 'citizens:detail' c.pk %}" class="fw-semibold text-decoration-none">
+              {{ c.last_name }}, {{ c.first_name }}{% if c.middle_name %} {{ c.middle_name|slice:":1" }}.{% endif %}{% if c.suffix %} {{ c.suffix }}{% endif %}
+            </a>
+          </td>
+          <td>{{ c.get_sex_display|default:"—" }}</td>
+          <td>{{ c.date_of_birth|default:"—" }}</td>
+          <td>{{ c.barangay|default:"—" }}</td>
+          <td>{{ c.contact_number|default:"—" }}</td>
+          <td><span class="status-{{ c.status }}">{{ c.get_status_display }}</span></td>
+          <td>{{ c.date_registered }}</td>
+          <td class="text-end text-nowrap">
+            <a href="{% url 'citizens:update' c.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'citizens:delete' c.pk %}" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-5">
+            No citizens found.
+            <a href="{% url 'citizens:create' %}">Register the first citizen</a>.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

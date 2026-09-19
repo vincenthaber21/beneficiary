@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}ID Card — {{ citizen.full_name }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'idcard.css' %}">{% endblock %}
+{% block content %}
+<style>
+  .idc-wrap{max-width:900px;margin:0 auto}
+  .idc-actions{display:flex;gap:.5rem;justify-content:center;align-items:center;margin-top:1.25rem;flex-wrap:wrap}
+  .idc-size{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:600;color:#334155}
+
+  @media print{
+    .sidebar,.mobile-topbar,.sidebar-overlay,.idc-actions,.page-hdr,.alert,.idc-note{display:none!important}
+    .main{margin:0!important;padding:0!important}
+    .idc-wrap{max-width:none;margin:0}
+    .ecard,.ecard *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    .ecard{box-shadow:none;border-radius:0;width:var(--print-w,85.6mm);height:auto;
+      break-inside:avoid;page-break-inside:avoid}
+  }
+</style>
+
+<div class="page-hdr">
+  <h2><i class="bi bi-person-vcard text-primary"></i> Citizen ID Card</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'citizens:detail' citizen.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Profile
+    </a>
+    <a href="{% url 'citizens:update' citizen.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-pencil"></i> Edit
+    </a>
+  </div>
+</div>
+
+<div class="idc-wrap">
+  {% include "beneficiaries/_id_card.html" with card=card %}
+
+  <div class="idc-actions">
+    <label class="idc-size">
+      <i class="bi bi-aspect-ratio"></i> Print size
+      <select id="print-size" class="form-select form-select-sm" style="width:auto">
+        <option value="85.6">Standard ID · CR80 (85.6 × 48 mm)</option>
+        <option value="98.5">Large ID · CR100 (98.5 × 55 mm)</option>
+        <option value="148">Card · A6 width (148 × 83 mm)</option>
+        <option value="270">Full page (landscape)</option>
+      </select>
+    </label>
+    <button type="button" id="print-btn" class="btn btn-primary">
+      <i class="bi bi-printer"></i> Print ID Card
+    </button>
+  </div>
+  <p class="text-center text-muted mt-2 idc-note" style="font-size:.8rem">
+    <i class="bi bi-info-circle"></i>
+    Pick a size, then print. Enable <strong>Background graphics</strong> in the print dialog so the
+    colors come out. The QR code encodes ID <code>{{ card.id_number }}</code>.
+  </p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var RATIO = 1123 / 2000;
+  var card  = document.querySelector('.ecard');
+  var sel   = document.getElementById('print-size');
+  var pageStyle = document.createElement('style');
+  document.head.appendChild(pageStyle);
+
+  function apply() {
+    var w = parseFloat(sel.value);
+    var h = Math.ceil(w * RATIO * 10) / 10;
+    card.style.setProperty('--print-w', w + 'mm');
+    pageStyle.textContent = '@media print{@page{size:' + w + 'mm ' + h + 'mm;margin:0}}';
+  }
+
+  sel.addEventListener('change', apply);
+  document.getElementById('print-btn').addEventListener('click', function () {
+    apply();
+    window.print();
+  });
+  apply();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,642 @@
+=== Cell 0 markdown ===
+# Testing the e-BAHAGI beneficiary-qualification algorithm
+
+This notebook tests the **real, unmodified** qualification algorithm from
+[`checker/logic.py`](../checker/logic.py) — it is imported directly from the
+Django app, not reimplemented here — against the real citizen registry
+export in [`citizen_registry_data.xlsx`](./citizen_registry_data.xlsx)
+(~43,400 residents across 47 barangays).
+
+The algorithm is a decision tree:
+
+```
+Is member of a valid class?
+  No  -> Not qualified
+  Yes -> Received a grant within the last 3 months (self or household)?
+           Yes -> Not qualified
+           No  -> Monthly income < Php 15,000.00?
+                    Yes -> QUALIFIED
+                    No  -> Not qualified
+```
+
+**Data caveat found during profiling (see Part 2):** the registry file has
+**no `monthly_income` values at all (100% empty)** and **no grant-history /
+household columns**. Those two inputs are required by the algorithm but
+don't exist in this export, so Parts 4+ clearly label them as *simulated*
+placeholders used only to exercise the algorithm at realistic scale — they
+are not real eligibility results. Part 1 covers the algorithm itself with
+exact, hand-picked test cases that don't depend on simulated data.
+
+**Structure**
+1. Unit tests for `evaluate()` — every branch, boundary values
+2. Load & profile the real registry data
+3. Derive `beneficiary_class` from registry columns (PWD/solo-parent flags, age, occupation)
+4. Simulate the two missing inputs (income, recent-grant flag) — clearly labeled
+5. Run the real algorithm across all ~43k residents
+6. Breakdowns (by class, by barangay, by rejection reason)
+7. Sensitivity sweep on the income threshold (exercises the real constant, not a copy)
+8. Export results
+9. Flowchart of the rule-based decision tree (drawn programmatically from the real constants)
+10. ML-style testing of the algorithm — confusion matrix, precision/recall/F1/ROC-AUC, and a learned decision-tree plot
+
+
+=== Cell 1 code ===
+%matplotlib inline
+import re
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Notebook lives in data_sonney/; the Django project (and checker/logic.py) is one level up.
+PROJECT_ROOT = Path.cwd().parent if Path.cwd().name == "data_sonney" else Path.cwd()
+sys.path.insert(0, str(PROJECT_ROOT))
+
+import checker.logic as checker_logic
+from checker.logic import evaluate, VALID_CLASSES, INCOME_THRESHOLD
+
+pd.set_option("display.max_columns", 50)
+plt.rcParams["figure.figsize"] = (8, 4.5)
+
+print("Algorithm loaded from:", (PROJECT_ROOT / "checker" / "logic.py").resolve())
+print("VALID_CLASSES:", VALID_CLASSES)
+print("INCOME_THRESHOLD:", INCOME_THRESHOLD)
+
+
+=== Cell 2 markdown ===
+## Part 1 — Unit tests for `evaluate()`
+
+Hand-picked cases that pin down every branch and the exact boundary of the
+income comparison (`<`, so a monthly income **equal to** the threshold is
+*not* qualified). These don't touch the registry data at all, so they keep
+working as a regression check even if the simulated data in later parts changes.
+
+
+=== Cell 3 code ===
+cases = [
+    ("invalid class is always rejected",
+     dict(beneficiary_class="Barangay Captain", received_grant_within_3_months=False, monthly_income=1000),
+     False),
+    ("None is rejected as an invalid class",
+     dict(beneficiary_class=None, received_grant_within_3_months=False, monthly_income=1000),
+     False),
+    ("valid class + recent grant -> rejected regardless of income",
+     dict(beneficiary_class="PWD", received_grant_within_3_months=True, monthly_income=0),
+     False),
+    ("household blocker rejects even with no personal recent grant",
+     dict(beneficiary_class="PWD", received_grant_within_3_months=False, monthly_income=0,
+          household_blocker_name="Juan Dela Cruz"),
+     False),
+    ("income exactly AT the threshold is NOT qualified (strict <)",
+     dict(beneficiary_class="Rice Farmer", received_grant_within_3_months=False, monthly_income=15000.00),
+     False),
+    ("income one centavo below the threshold IS qualified",
+     dict(beneficiary_class="Rice Farmer", received_grant_within_3_months=False, monthly_income=14999.99),
+     True),
+    ("zero income qualifies",
+     dict(beneficiary_class="Senior Citizen", received_grant_within_3_months=False, monthly_income=0),
+     True),
+    ("high income is rejected",
+     dict(beneficiary_class="Senior Citizen", received_grant_within_3_months=False, monthly_income=50000),
+     False),
+]
+
+failures = 0
+for description, kwargs, expected in cases:
+    outcome = evaluate(**kwargs)
+    ok = outcome["qualified"] == expected
+    failures += not ok
+    print(f"[{'PASS' if ok else 'FAIL'}] {description}")
+    print(f"       -> qualified={outcome['qualified']}  reason={outcome['reason']!r}")
+    assert ok, f"{description}: expected qualified={expected}, got {outcome}"
+
+# Every documented valid class must be individually recognized.
+for cls in VALID_CLASSES:
+    outcome = evaluate(beneficiary_class=cls, received_grant_within_3_months=False, monthly_income=0)
+    ok = outcome["qualified"] is True
+    failures += not ok
+    print(f"[{'PASS' if ok else 'FAIL'}] class recognized: {cls}")
+    assert ok, f"VALID_CLASSES entry {cls!r} did not qualify under ideal conditions: {outcome}"
+
+print(f"\n{len(cases) + len(VALID_CLASSES)} checks run, {failures} failed.")
+
+
+=== Cell 4 markdown ===
+## Part 2 — Load & profile the real registry data
+
+
+=== Cell 5 code ===
+DATA_PATH = PROJECT_ROOT / "data_sonney" / "citizen_registry_data.xlsx"
+df = pd.read_excel(DATA_PATH)
+print(f"{len(df):,} rows, {df.shape[1]} columns")
+df.head()
+
+
+=== Cell 6 code ===
+missing_pct = (df.isna().mean() * 100).round(1).sort_values(ascending=False)
+missing_pct.to_frame("% missing")
+
+
+=== Cell 7 code ===
+print("monthly_income non-null count:", df['monthly_income'].notna().sum(), "/", len(df))
+print("psoc (occupation) non-null count:", df['psoc'].notna().sum(), "/", len(df))
+print("distinct barangays:", df['barangay'].nunique())
+print("age range:", df['age'].min(), "-", df['age'].max())
+print("age >= 60 (senior citizen threshold):", (df['age'] >= 60).sum())
+print()
+print("solo parent value counts:")
+print(df['solo parent'].value_counts(dropna=False))
+print()
+print("pwd value counts:")
+print(df['pwd'].value_counts(dropna=False))
+
+
+=== Cell 8 markdown ===
+`monthly_income` is **100% empty** in this export and there is no
+grant-history or household-linkage column, confirming the caveat from the
+intro. Everything else (PWD flag, solo-parent flag, age, occupation) is
+usable for deriving `beneficiary_class`.
+
+
+=== Cell 9 markdown ===
+## Part 3 — Derive `beneficiary_class` from the registry columns
+
+`evaluate()` takes a single `beneficiary_class` string, but a resident can
+match more than one real-world category (e.g. a senior citizen who is also
+PWD). For this notebook we pick **one** class per person using a fixed
+priority order so every row can be run through the algorithm, and we also
+keep the full match list so we can measure how often that overlap happens.
+
+Priority: `PWD` > `Solo Parent` > `Senior Citizen` (age ≥ 60) > occupation
+keyword match on `psoc` (Tricycle Driver / Construction Worker / Rice Farmer
+/ Market Vendor — the same keyword-matching approach already used in
+`beneficiaries/management/commands/import_beneficiaries.py`).
+
+**Known gap:** `Lactating Mother` can never be derived from this file — there
+is no pregnancy/maternity column — so it will never appear below. That's a
+data-source limitation, not a bug in the algorithm.
+
+
+=== Cell 10 code ===
+PSOC_CLASS_PATTERNS = [
+    ("Tricycle Driver", re.compile(r"TRICYCLE|PEDICAB", re.I)),
+    ("Construction Worker", re.compile(r"CONSTRUCTION", re.I)),
+    ("Rice Farmer", re.compile(r"RICE FARMER", re.I)),
+    ("Market Vendor", re.compile(r"VENDOR", re.I)),
+]
+
+def matched_classes_for_row(row):
+    matches = []
+    if row["pwd"] == "Yes":
+        matches.append("PWD")
+    if row["solo parent"] == "Yes":
+        matches.append("Solo Parent")
+    if row["age"] >= 60:
+        matches.append("Senior Citizen")
+    psoc = row["psoc"]
+    psoc = psoc if isinstance(psoc, str) else ""
+    for cls, pattern in PSOC_CLASS_PATTERNS:
+        if pattern.search(psoc):
+            matches.append(cls)
+            break
+    return matches
+
+df["matched_classes"] = df.apply(matched_classes_for_row, axis=1)
+df["num_matched_classes"] = df["matched_classes"].str.len()
+df["beneficiary_class"] = df["matched_classes"].apply(lambda m: m[0] if m else None)
+
+assert set(df["beneficiary_class"].dropna().unique()) <= set(VALID_CLASSES), \
+    "derived a class that evaluate() would not recognize"
+
+print("'Lactating Mother' present in derived classes:",
+      "Lactating Mother" in df["beneficiary_class"].values, "(expected: False)")
+print()
+print("Residents matching 2+ classes at once:", (df['num_matched_classes'] >= 2).sum())
+df["beneficiary_class"].value_counts(dropna=False)
+
+
+=== Cell 11 code ===
+class_counts = df["beneficiary_class"].value_counts(dropna=False).rename(index={np.nan: "(not in any valid class)"})
+
+ax = class_counts.sort_values().plot.barh(color="#4C72B0")
+ax.set_xlabel("residents")
+ax.set_title("Derived beneficiary_class across the registry")
+for i, v in enumerate(class_counts.sort_values()):
+    ax.text(v, i, f" {v:,}", va="center")
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 12 markdown ===
+## Part 4 — Simulating the two inputs this file doesn't have
+
+`monthly_income` and "received a grant in the last 3 months" are required by
+`evaluate()` but are not present anywhere in `citizen_registry_data.xlsx`.
+The columns below are **synthetic, seeded placeholders** used only to
+exercise the algorithm at the registry's real scale/shape — they are not
+real income or grant data, and none of this is written back to the registry.
+
+
+=== Cell 13 code ===
+rng = np.random.default_rng(42)  # seeded for reproducibility
+
+# SIMULATED — not present in source data.
+df["sim_received_grant_recently"] = rng.random(len(df)) < 0.10
+df["sim_monthly_income"] = np.round(rng.lognormal(mean=np.log(9000), sigma=0.6, size=len(df)), 2)
+df["sim_monthly_income"] = df["sim_monthly_income"].clip(0, 60000)
+
+print(f"simulated 'recent grant' rate: {df['sim_received_grant_recently'].mean() * 100:.1f}%")
+df["sim_monthly_income"].describe().round(2)
+
+
+=== Cell 14 code ===
+ax = df["sim_monthly_income"].plot.hist(bins=60, color="#4C72B0", edgecolor="white")
+ax.axvline(INCOME_THRESHOLD, color="#C44E52", linestyle="--", label=f"threshold = Php {INCOME_THRESHOLD:,.0f}")
+ax.set_xlabel("simulated monthly income (Php)")
+ax.set_ylabel("residents")
+ax.set_title("Simulated income distribution (synthetic, for stress-testing only)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 15 markdown ===
+## Part 5 — Run the real algorithm across all residents
+
+This calls the exact same `evaluate()` used by the Django `checker` app —
+nothing about the decision logic is reimplemented here.
+
+
+=== Cell 16 code ===
+def run_evaluate(row):
+    outcome = evaluate(
+        beneficiary_class=row["beneficiary_class"],
+        received_grant_within_3_months=bool(row["sim_received_grant_recently"]),
+        monthly_income=float(row["sim_monthly_income"]),
+    )
+    return pd.Series({
+        "decision": outcome["result"],
+        "reason": outcome["reason"],
+        "qualified": outcome["qualified"],
+    })
+
+df = pd.concat([df, df.apply(run_evaluate, axis=1)], axis=1)
+
+qualified_rate = df["qualified"].mean() * 100
+print(f"{df['qualified'].sum():,} / {len(df):,} residents QUALIFIED ({qualified_rate:.1f}%)")
+df["decision"].value_counts()
+
+
+=== Cell 17 markdown ===
+## Part 6 — Breakdowns
+
+=== Cell 18 code ===
+def categorize_reason(reason):
+    if reason.startswith("Not a member"):
+        return "not in a valid class"
+    if reason.startswith("Received a grant"):
+        return "recent grant (self)"
+    if "family member" in reason:
+        return "recent grant (household)"
+    if reason.startswith("Monthly income"):
+        return "income too high"
+    return "qualified"
+
+df["reason_category"] = df["reason"].apply(categorize_reason)
+
+ax = df["reason_category"].value_counts().sort_values().plot.barh(color="#55A868")
+ax.set_xlabel("residents")
+ax.set_title("Outcome breakdown (why qualified / why not)")
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 19 code ===
+by_class = (
+    df.groupby("beneficiary_class", dropna=False)["qualified"]
+    .agg(total="size", qualified="sum")
+    .assign(qualified_rate_pct=lambda d: (d["qualified"] / d["total"] * 100).round(1))
+    .sort_values("total", ascending=False)
+)
+by_class
+
+
+=== Cell 20 code ===
+barangay_summary = (
+    df.groupby("barangay")["qualified"]
+    .agg(total="size", qualified="sum")
+    .assign(qualified_rate_pct=lambda d: (d["qualified"] / d["total"] * 100).round(1))
+    .sort_values("qualified", ascending=False)
+)
+
+top15 = barangay_summary.head(15)
+ax = top15["qualified"].sort_values().plot.barh(color="#8172B2")
+ax.set_xlabel("qualified residents (simulated)")
+ax.set_title("Top 15 barangays by simulated qualified count")
+plt.tight_layout()
+plt.show()
+
+barangay_summary.head(15)
+
+
+=== Cell 21 markdown ===
+## Part 7 — Sensitivity to the income threshold
+
+`INCOME_THRESHOLD` is a module-level constant in `checker/logic.py`. Rather
+than copying the comparison, this temporarily overrides the real constant on
+the imported module and re-runs the real `evaluate()` for each candidate
+threshold, then restores the original value.
+
+
+=== Cell 22 code ===
+thresholds_to_try = [8000, 10000, 12000, 15000, 18000, 20000]
+original_threshold = checker_logic.INCOME_THRESHOLD
+sweep_rows = []
+
+try:
+    for t in thresholds_to_try:
+        checker_logic.INCOME_THRESHOLD = t
+        qualified_count = int(df.apply(
+            lambda row: evaluate(
+                beneficiary_class=row["beneficiary_class"],
+                received_grant_within_3_months=bool(row["sim_received_grant_recently"]),
+                monthly_income=float(row["sim_monthly_income"]),
+            )["qualified"],
+            axis=1,
+        ).sum())
+        sweep_rows.append((t, qualified_count))
+finally:
+    checker_logic.INCOME_THRESHOLD = original_threshold
+
+assert checker_logic.INCOME_THRESHOLD == original_threshold, "threshold was not restored"
+
+sweep_df = pd.DataFrame(sweep_rows, columns=["income_threshold", "qualified_count"])
+ax = sweep_df.plot.bar(x="income_threshold", y="qualified_count", legend=False, color="#4C72B0")
+ax.axvline(sweep_df.index[sweep_df["income_threshold"] == 15000][0], color="#C44E52", linestyle="--", linewidth=1)
+ax.set_xlabel("hypothetical INCOME_THRESHOLD (Php)")
+ax.set_ylabel("residents that would qualify")
+ax.set_title("Sensitivity of qualified count to the income threshold")
+plt.tight_layout()
+plt.show()
+
+sweep_df
+
+
+=== Cell 23 markdown ===
+## Part 8 — Export results
+
+=== Cell 24 code ===
+output_cols = [
+    "citizen_id", "firstname", "middlename", "lastname", "barangay", "age", "psoc",
+    "beneficiary_class", "num_matched_classes",
+    "sim_received_grant_recently", "sim_monthly_income",
+    "decision", "reason", "qualified",
+]
+out_path = PROJECT_ROOT / "data_sonney" / "algo_test_results.xlsx"
+df[output_cols].to_excel(out_path, index=False)
+print(f"Wrote {len(df):,} rows to {out_path}")
+df[output_cols].sample(10, random_state=1)
+
+
+=== Cell 25 markdown ===
+## Part 9 — Flowchart of the rule-based decision tree
+
+Drawn programmatically from `VALID_CLASSES` and `INCOME_THRESHOLD` (not a
+static picture), so it can never drift out of sync with `checker/logic.py`.
+
+
+=== Cell 26 code ===
+import matplotlib.patches as mpatches
+
+def draw_box(ax, x, y, w, h, text, facecolor="white", fontsize=6.8):
+    box = mpatches.FancyBboxPatch(
+        (x - w / 2, y - h / 2), w, h,
+        boxstyle="round,pad=0.02,rounding_size=0.04",
+        linewidth=1, edgecolor="black", facecolor=facecolor, zorder=2,
+    )
+    ax.add_patch(box)
+    ax.text(x, y, text, ha="center", va="center", fontsize=fontsize, zorder=3)
+
+def draw_arrow(ax, xy0, xy1, label=None):
+    ax.annotate("", xy=xy1, xytext=xy0,
+                arrowprops=dict(arrowstyle="-", linewidth=0.8, color="#555555"), zorder=1)
+    if label:
+        mx, my = (xy0[0] + xy1[0]) / 2, (xy0[1] + xy1[1]) / 2
+        ax.text(mx, my, label, fontsize=6.2, ha="center", va="center",
+                color="#333333", backgroundcolor="white", zorder=3)
+
+n = len(VALID_CLASSES)
+col_w = 3.0
+xs = [i * col_w for i in range(n)]
+root_x = sum(xs) / n
+
+class_h, class_w = 0.5, 2.4
+q_h, q_w = 0.7, 2.2
+leaf_h, leaf_w = 0.45, 1.1
+y_root, y_class, y_grant, y_grant_leaf, y_income, y_income_leaf = 10.2, 9.0, 7.4, 6.0, 4.6, 3.2
+
+fig, ax = plt.subplots(figsize=(2.7 * n, 7.5))
+draw_box(ax, root_x, y_root, 2.8, 0.55, "Citizen / applicant", facecolor="#DCE6F7", fontsize=8)
+
+grant_label = "Received grant" + chr(10) + "within 3 months?"
+
+for x, cls in zip(xs, VALID_CLASSES):
+    draw_box(ax, x, y_class, class_w, class_h, cls, facecolor="#EFEFEF")
+    draw_arrow(ax, (root_x, y_root - 0.28), (x, y_class + class_h / 2))
+
+    draw_box(ax, x, y_grant, q_w, q_h, grant_label)
+    draw_arrow(ax, (x, y_class - class_h / 2), (x, y_grant + q_h / 2))
+
+    nq1_x = x - 0.75
+    draw_box(ax, nq1_x, y_grant_leaf, leaf_w, leaf_h, "Not qualified", facecolor="#F7D9D9", fontsize=6.5)
+    draw_arrow(ax, (x - 0.35, y_grant - q_h / 2), (nq1_x, y_grant_leaf + leaf_h / 2), label="Yes")
+
+    income_label = f"Income <{chr(10)}Php {INCOME_THRESHOLD:,.0f}?"
+    income_x = x + 0.75
+    draw_box(ax, income_x, y_income, q_w, q_h, income_label)
+    draw_arrow(ax, (x + 0.35, y_grant - q_h / 2), (income_x, y_income + q_h / 2), label="No")
+
+    q_x = income_x - 0.75
+    nq2_x = income_x + 0.75
+    draw_box(ax, q_x, y_income_leaf, leaf_w, leaf_h, "Qualified", facecolor="#DBF0DB", fontsize=6.5)
+    draw_box(ax, nq2_x, y_income_leaf, leaf_w, leaf_h, "Not qualified", facecolor="#F7D9D9", fontsize=6.5)
+    draw_arrow(ax, (income_x - 0.35, y_income - q_h / 2), (q_x, y_income_leaf + leaf_h / 2), label="Yes")
+    draw_arrow(ax, (income_x + 0.35, y_income - q_h / 2), (nq2_x, y_income_leaf + leaf_h / 2), label="No")
+
+ax.set_xlim(xs[0] - 2.0, xs[-1] + 2.6)
+ax.set_ylim(y_income_leaf - 0.6, y_root + 0.6)
+ax.axis("off")
+ax.set_title("evaluate() decision tree - generated from VALID_CLASSES / INCOME_THRESHOLD", fontsize=11)
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 27 markdown ===
+## Part 10 — ML-style testing of the algorithm
+
+`evaluate()` is an exact, deterministic rule — Part 1 already tests it
+completely on its own terms. This section additionally runs the
+confusion-matrix / precision-recall-F1 / ROC-AUC / decision-tree-plot battery
+you'd use to test a *learned* classifier, applied to this project's own data,
+for anyone whose testing checklist expects that format.
+
+**Sanity check first.** If a `DecisionTreeClassifier` is given the exact same
+three inputs `evaluate()` uses (class, grant flag, true income), it should
+reconstruct the rule perfectly — `qualified` is a noise-free deterministic
+function of exactly those features, so 100% is the *correct* result here,
+not a bug.
+
+
+=== Cell 28 code ===
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import (confusion_matrix, accuracy_score, precision_score,
+                              recall_score, f1_score, roc_auc_score, roc_curve,
+                              classification_report)
+
+le = LabelEncoder()
+beneficiary_type_code = le.fit_transform(df["beneficiary_class"].fillna("None"))
+code_lookup = pd.DataFrame({"beneficiary_type": le.classes_, "code": le.transform(le.classes_)})
+
+y = df["qualified"].map({True: "Qualified", False: "Not Qualified"})
+
+X_exact = pd.DataFrame({
+    "monthly_salary": df["sim_monthly_income"],
+    "received_grants_3mo": df["sim_received_grant_recently"].astype(int),
+    "beneficiary_type_code": beneficiary_type_code,
+})
+Xtr, Xte, ytr, yte = train_test_split(X_exact, y, test_size=0.2, random_state=42, stratify=y)
+exact_clf = DecisionTreeClassifier(criterion="entropy", max_depth=5, random_state=42).fit(Xtr, ytr)
+exact_acc = accuracy_score(yte, exact_clf.predict(Xte)) * 100
+print(f"Sanity check (exact inputs, no noise): accuracy = {exact_acc:.1f}% (expected: ~100%)")
+code_lookup
+
+
+=== Cell 29 markdown ===
+### A more realistic test: self-reported income has measurement error
+
+`evaluate()` needs *true* monthly income, but a real intake interview or
+household survey collects *reported* income — people round, forget irregular
+earnings, or under/over-report. To get metrics that mean something (rather
+than the trivial 100% above), this fits the model on a **noisy** income
+feature — true income distorted by +/-25% random error — while the label
+still comes from the true, unmodified `evaluate()` decision. This is the
+same battery shown in the reference screenshots, run against this project's
+own algorithm and data; exact numbers will vary with the random seed and are
+not meant to match any other run.
+
+
+=== Cell 30 code ===
+rng2 = np.random.default_rng(7)
+reported_income = (df["sim_monthly_income"] * (1 + rng2.normal(0, 0.25, len(df)))).clip(lower=0)
+
+X = pd.DataFrame({
+    "monthly_salary": reported_income,
+    "received_grants_3mo": df["sim_received_grant_recently"].astype(int),
+    "beneficiary_type_code": beneficiary_type_code,
+})
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+clf = DecisionTreeClassifier(criterion="entropy", max_depth=4, random_state=42)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+qualified_idx = list(clf.classes_).index("Qualified")
+y_proba = clf.predict_proba(X_test)[:, qualified_idx]
+y_test_bin = (y_test == "Qualified").astype(int)
+
+print(classification_report(y_test, y_pred))
+
+
+=== Cell 31 code ===
+labels_order = ["Not Qualified", "Qualified"]
+cm = confusion_matrix(y_test, y_pred, labels=labels_order)
+
+fig, ax = plt.subplots(figsize=(5.5, 4.8))
+ax.imshow(cm, cmap="Blues")
+ax.set_xticks([0, 1]); ax.set_xticklabels(labels_order, rotation=20, ha="right")
+ax.set_yticks([0, 1]); ax.set_yticklabels(labels_order)
+ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
+ax.set_title("Confusion Matrix")
+thresh = cm.max() / 2
+for i in range(2):
+    for j in range(2):
+        ax.text(j, i, f"{cm[i, j]:,}", ha="center", va="center",
+                color="white" if cm[i, j] > thresh else "black", fontsize=13)
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 32 code ===
+acc = accuracy_score(y_test, y_pred) * 100
+prec = precision_score(y_test, y_pred, pos_label="Qualified") * 100
+rec = recall_score(y_test, y_pred, pos_label="Qualified") * 100
+f1 = f1_score(y_test, y_pred, pos_label="Qualified") * 100
+auc = roc_auc_score(y_test_bin, y_proba) * 100
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+metrics = {"Accuracy": acc, "Precision": prec, "Recall": rec, "F1-score": f1, "ROC-AUC": auc}
+colors = ["#2C3E50", "#2E9E8F", "#E8C547", "#F2924D", "#E76F51"]
+axes[0].bar(list(metrics.keys()), list(metrics.values()), color=colors)
+for i, v in enumerate(metrics.values()):
+    axes[0].text(i, v + 1, f"{v:.1f}", ha="center", fontweight="bold")
+axes[0].set_ylim(0, 100)
+axes[0].set_ylabel("Score (%)")
+axes[0].set_title("Model Performance Metrics")
+
+fpr, tpr, _ = roc_curve(y_test_bin, y_proba)
+axes[1].plot(fpr, tpr, color="#F2734D", label=f"ROC (AUC = {auc / 100:.3f})")
+axes[1].plot([0, 1], [0, 1], linestyle="--", color="gray")
+axes[1].set_xlabel("False Positive Rate")
+axes[1].set_ylabel("True Positive Rate")
+axes[1].set_title("ROC Curve")
+axes[1].legend(loc="lower right")
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 33 code ===
+plt.figure(figsize=(22, 10))
+plot_tree(clf, feature_names=list(X.columns), class_names=clf.classes_, filled=True, rounded=True, fontsize=7)
+plt.title("Learned DecisionTreeClassifier (max_depth=4, noisy reported income)")
+plt.tight_layout()
+plt.show()
+
+
+=== Cell 34 markdown ===
+Part 10 measures something different from Part 1: Part 1 proves `evaluate()`
+itself is correct on exact inputs; Part 10 measures how well a simple learned
+model can *approximate* that same decision when the income it sees is only
+as good as self-reported survey data. It's a useful upstream-triage sanity
+check, not a replacement for calling the real `evaluate()` for the actual
+eligibility decision.
+
+
+=== Cell 35 markdown ===
+## Summary
+
+- **Part 1** validates `evaluate()` itself against hand-picked boundary
+  cases — this part has nothing to do with the registry file and will keep
+  working as a regression check.
+- **Parts 2–8** run the same, unmodified algorithm across the real
+  ~43,400-resident registry. The `beneficiary_class` derivation (Part 3) uses
+  real registry columns; `monthly_income` and the recent-grant flag are
+  **simulated placeholders** (Part 4) because the source file has no income
+  or grant-history data — re-running with different `rng` seeds or
+  simulation parameters will change the qualified counts, but not the class
+  breakdown or the unit tests.
+- **Part 9** is a generated diagram of the same rule, and **Part 10** is a
+  separate ML-style fidelity test (confusion matrix, precision/recall/F1,
+  ROC-AUC, learned tree) of how well a classifier can recover that rule from
+  noisy reported income — not a second implementation of the algorithm.
+- To get real eligibility numbers instead of simulated ones, this registry
+  export would need to be joined against an actual income source and the
+  `records.GrantRecord` history (or `Beneficiary.prior_grant_date`) already
+  used elsewhere in the Django app.
+
+

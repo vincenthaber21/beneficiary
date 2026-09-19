@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Delete Program{% endblock %}
+{% block content %}
+<div class="page-hdr"><h2>Delete Program</h2></div>
+<div class="form-panel" style="max-width:500px">
+  <p class="text-danger fw-semibold">Are you sure you want to delete <strong>{{ program.name }}</strong>?</p>
+  <p class="text-muted small">This action cannot be undone. Grant records linked to this program will be preserved.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger me-2">Yes, Delete</button>
+    <a href="{% url 'programs:list' %}" class="btn btn-light">Cancel</a>
+  </form>
+</div>
+{% endblock %}

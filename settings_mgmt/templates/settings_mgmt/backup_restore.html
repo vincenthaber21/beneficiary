@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Backup & Restore{% endblock %}
+
+{% block content %}
+<style>
+  .br-breadcrumb { font-size:.78rem; color:#64748b; margin-bottom:.35rem; }
+  .br-breadcrumb a { color:#3b82f6; text-decoration:none; }
+  .br-breadcrumb a:hover { text-decoration:underline; }
+  .br-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; align-items:start; }
+  @media(max-width:900px){ .br-grid{ grid-template-columns:1fr; } }
+  .br-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+  .br-card-hdr { padding:1.15rem 1.35rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; }
+  .br-card-hdr .hdr-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
+  .br-card-hdr .hdr-icon.blue { background:#eff6ff; color:#2563eb; }
+  .br-card-hdr .hdr-icon.amber { background:#fffbeb; color:#d97706; }
+  .br-card-hdr h5 { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
+  .br-card-hdr p { margin:.15rem 0 0; font-size:.78rem; color:#64748b; }
+  .br-card-body { padding:1.35rem; }
+  .br-card-body > p { font-size:.875rem; color:#475569; line-height:1.55; margin-bottom:1rem; }
+  .br-list { margin:0 0 1rem; padding-left:1.1rem; font-size:.82rem; color:#64748b; }
+  .br-list li { margin-bottom:.35rem; }
+  .br-note { border-radius:10px; padding:.85rem 1rem; font-size:.8rem; line-height:1.45; margin-bottom:1.15rem; }
+  .br-note.warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
+  .br-note.danger { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+  .br-note.info { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; }
+  .br-field { margin-bottom:1rem; }
+  .br-field label { display:block; font-size:.8rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
+  .br-field .form-control { border-color:#e2e8f0; font-size:.875rem; border-radius:8px; }
+  .br-field .form-control:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+  .br-field .hint { font-size:.75rem; color:#94a3b8; margin-top:.3rem; }
+  .btn-backup { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600; font-size:.875rem; padding:.6rem 1.35rem; border-radius:8px; display:inline-flex; align-items:center; gap:.4rem; }
+  .btn-backup:hover { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+  .btn-restore { background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600; font-size:.875rem; padding:.6rem 1.35rem; border-radius:8px; display:inline-flex; align-items:center; gap:.4rem; }
+  .btn-restore:hover { background:#b91c1c; border-color:#b91c1c; color:#fff; }
+  .br-lock { display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#0f766e; background:#f0fdfa; border:1px solid #99f6e4; border-radius:99px; padding:.25rem .65rem; }
+</style>
+
+<div class="br-breadcrumb mb-1">
+  <a href="{% url 'core:dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <a href="{% url 'settings_mgmt:settings' %}">Settings</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>Backup &amp; Restore</span>
+</div>
+
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Backup &amp; Restore</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">
+      Protect beneficiary and citizen data with a full system backup you can download or restore anytime.
+    </p>
+  </div>
+  <span class="br-lock"><i class="bi bi-lock-fill"></i> Admin only</span>
+</div>
+
+<div class="br-note info mb-4">
+  <i class="bi bi-info-circle-fill me-1"></i>
+  Backups include the full database and uploaded media (photos, signatures, logos).
+  Store backup files in a private, secure location.
+</div>
+
+<div class="br-grid">
+  <!-- Backup -->
+  <section class="br-card">
+    <div class="br-card-hdr">
+      <div class="hdr-icon blue"><i class="bi bi-cloud-arrow-down"></i></div>
+      <div>
+        <h5>Create backup</h5>
+        <p>Download a complete snapshot of system data.</p>
+      </div>
+    </div>
+    <div class="br-card-body">
+      <p>Generates a <code>.zip</code> archive containing:</p>
+      <ul class="br-list">
+        <li><code>db.sqlite3</code> — all records and users</li>
+        <li><code>media/</code> — photos, signatures, and logos</li>
+        <li><code>manifest.json</code> — backup metadata</li>
+      </ul>
+      <div class="br-note warn">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        Keep this file private. It contains personal and sensitive program data.
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="backup">
+        <button type="submit" class="btn btn-backup">
+          <i class="bi bi-download"></i> Download backup
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Restore -->
+  <section class="br-card">
+    <div class="br-card-hdr">
+      <div class="hdr-icon amber"><i class="bi bi-cloud-arrow-up"></i></div>
+      <div>
+        <h5>Restore backup</h5>
+        <p>Replace current data with a previous backup.</p>
+      </div>
+    </div>
+    <div class="br-card-body">
+      <p>
+        Accepts an e-BAHAGI <code>.zip</code> backup or a raw <code>.sqlite3</code> database file.
+      </p>
+      <div class="br-note danger">
+        <strong><i class="bi bi-exclamation-octagon-fill me-1"></i>Destructive action.</strong>
+        Current data will be overwritten. Download a fresh backup first.
+        Users may need to sign in again after restore.
+      </div>
+      <form method="post" enctype="multipart/form-data" id="restoreForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="restore">
+        <div class="br-field">
+          <label for="id_backup_file">Backup file</label>
+          <input id="id_backup_file" class="form-control" type="file" name="backup_file"
+                 accept=".zip,.sqlite3,.sqlite,.db" required>
+          <div class="hint">Max size 512 MB. Prefer the official .zip backup format.</div>
+        </div>
+        <div class="br-field">
+          <label for="id_confirm_phrase">Type <code>{{ confirm_phrase }}</code> to confirm</label>
+          <input id="id_confirm_phrase" class="form-control" type="text" name="confirm_phrase"
+                 autocomplete="off" required placeholder="{{ confirm_phrase }}">
+        </div>
+        <button type="submit" class="btn btn-restore" id="restoreBtn">
+          <i class="bi bi-arrow-counterclockwise"></i> Restore now
+        </button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('restoreForm');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    var phrase = (document.getElementById('id_confirm_phrase').value || '').trim();
+    if (phrase !== '{{ confirm_phrase }}') return;
+    if (!window.confirm('This will overwrite all current system data. Continue with restore?')) {
+      e.preventDefault();
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,938 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ action }} Beneficiary{% endblock %}
+
+{# ── CSS in <head> ── #}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<link rel="stylesheet" href="{% static 'idcard.css' %}">
+<style>
+  /* flatpickr theme */
+  .flatpickr-calendar { font-family: system-ui,-apple-system,sans-serif; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 8px 24px rgba(0,0,0,.12); }
+  .flatpickr-months { background:#2563eb; border-radius:12px 12px 0 0; padding:.4rem 0; }
+  .flatpickr-months .flatpickr-month,.flatpickr-current-month { color:#fff; fill:#fff; }
+  .flatpickr-current-month { font-size:.95rem; }
+  .flatpickr-current-month .flatpickr-monthDropdown-months { background:#2563eb; color:#fff; border:none; font-weight:700; }
+  .flatpickr-current-month input.cur-year { color:#fff; font-weight:700; }
+  .flatpickr-prev-month,.flatpickr-next-month { color:#fff!important; fill:#fff!important; }
+  .flatpickr-weekday { color:#64748b!important; font-weight:700!important; font-size:.72rem!important; }
+  .flatpickr-day { border-radius:8px!important; font-size:.82rem; color:#1e293b; }
+  .flatpickr-day:hover { background:#eff6ff; border-color:#eff6ff; }
+  .flatpickr-day.selected,.flatpickr-day.selected:hover { background:#2563eb!important; border-color:#2563eb!important; color:#fff!important; font-weight:700; }
+  .flatpickr-day.today { border-color:#3b82f6!important; color:#2563eb!important; font-weight:700; }
+  .flatpickr-day.today:hover { background:#eff6ff!important; }
+  .flatpickr-day.today.selected { color:#fff!important; }
+  .flatpickr-day.disabled { color:#cbd5e1!important; }
+  .flatpickr-innerContainer { padding:.25rem .5rem .5rem; }
+  /* date input wrapper */
+  .date-input-wrap { position:relative; }
+  .date-input-wrap .form-control { padding-right:2.6rem; cursor:pointer; background:#fff; }
+  .date-input-wrap .date-icon-btn { position:absolute; right:0; top:0; height:100%; width:2.5rem; display:flex; align-items:center; justify-content:center; color:#64748b; cursor:pointer; background:transparent; border:none; border-left:1px solid #e2e8f0; border-radius:0 8px 8px 0; transition:background .15s,color .15s; }
+  .date-input-wrap .date-icon-btn:hover { background:#eff6ff; color:#2563eb; }
+  /* locked when a program grant is on record */
+  .date-input-wrap.grant-locked .form-control { background:#f1f5f9; color:#64748b; cursor:not-allowed; }
+  .date-input-wrap.grant-locked .date-icon-btn { color:#94a3b8; cursor:not-allowed; }
+  .date-input-wrap.grant-locked .date-icon-btn:hover { background:transparent; color:#94a3b8; }
+  .fp-quick-bar { display:flex; gap:.4rem; padding:.4rem .6rem .6rem; border-top:1px solid #f1f5f9; }
+  .fp-quick-bar button { flex:1; font-size:.72rem; font-weight:600; padding:.3rem 0; border-radius:6px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; transition:background .15s; }
+  .fp-quick-bar button:hover { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
+  .fp-quick-bar button.fp-clear { border-color:#fecaca; color:#dc2626; }
+  .fp-quick-bar button.fp-clear:hover { background:#fef2f2; }
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+  .ben-breadcrumb { font-size:.78rem; color:#64748b; margin-bottom:.35rem; }
+  .ben-breadcrumb a { color:#3b82f6; text-decoration:none; }
+  .ben-breadcrumb a:hover { text-decoration:underline; }
+  .form-grid { display:grid; grid-template-columns:1fr 290px; gap:1.5rem; align-items:start; }
+  @media(max-width:960px){ .form-grid{ grid-template-columns:1fr; } }
+  .form-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+  .form-card-header { padding:1.25rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; }
+  .form-card-header .hdr-icon { width:40px; height:40px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+  .form-card-header h5 { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
+  .form-card-header p { margin:.1rem 0 0; font-size:.78rem; color:#64748b; }
+  .form-card-body { padding:1.5rem; }
+  .section-divider { display:flex; align-items:center; gap:.75rem; margin:1.5rem 0 1rem; }
+  .section-divider span { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; white-space:nowrap; }
+  .section-divider::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+  .input-group .input-group-text { background:#f8fafc; border-color:#e2e8f0; color:#64748b; font-size:.82rem; font-weight:600; }
+  .form-control,.form-select { border-color:#e2e8f0; font-size:.875rem; border-radius:8px!important; transition:border-color .2s,box-shadow .2s; }
+  .form-control:focus,.form-select:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+  .form-control.is-invalid { border-color:#ef4444!important; }
+  .form-label { font-size:.8rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.1rem; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; }
+  .toggle-row .toggle-info h6 { margin:0; font-size:.875rem; font-weight:600; color:#0f172a; }
+  .toggle-row .toggle-info p { margin:.1rem 0 0; font-size:.75rem; color:#64748b; }
+  .form-switch .form-check-input { width:2.4em; height:1.3em; cursor:pointer; }
+  .form-switch .form-check-input:checked { background-color:#22c55e; border-color:#22c55e; }
+  .form-actions { display:flex; gap:.75rem; padding-top:1.25rem; border-top:1px solid #f1f5f9; margin-top:1.5rem; }
+  .btn-save { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600; font-size:.875rem; padding:.55rem 1.5rem; border-radius:8px; display:flex; align-items:center; gap:.4rem; transition:background .2s; }
+  .btn-save:hover { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+  .btn-cancel { font-size:.875rem; padding:.55rem 1.25rem; border-radius:8px; color:#64748b; border-color:#e2e8f0; background:#fff; }
+  .btn-cancel:hover { background:#f1f5f9; }
+  /* eligibility preview inside form */
+  .elig-card { border-radius:10px; padding:.9rem 1rem; border:1px solid; font-size:.875rem; }
+  .elig-card.qualified   { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+  .elig-card.not-qualified { background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
+  .elig-card.pending     { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+  .elig-card .elig-title { font-weight:700; font-size:.875rem; display:flex; align-items:center; gap:.4rem; }
+  .elig-card .elig-reason { margin:.35rem 0 0; font-size:.8rem; opacity:.85; }
+  .elig-card .elig-note   { margin:.3rem 0 0; font-size:.72rem; opacity:.65; }
+  /* cooldown banners */
+  .cooldown-banner { border-radius:10px; padding:.75rem 1rem; font-size:.82rem; border:1px solid; display:none; }
+  .cooldown-banner.warn  { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+  .cooldown-banner.ok    { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+  /* sidebar */
+  .summary-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:1.5rem; }
+  .summary-card-hdr { padding:1rem 1.25rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color:#0f172a; }
+  .summary-card-hdr i { color:#3b82f6; }
+  .summary-body { padding:1rem 1.25rem; }
+  .summary-row { display:flex; flex-direction:column; gap:.15rem; padding:.55rem 0; border-bottom:1px solid #f1f5f9; }
+  .summary-row:last-child { border-bottom:none; }
+  .summary-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+  .summary-val { font-size:.875rem; font-weight:600; color:#0f172a; min-height:1.2em; word-break:break-word; }
+  .summary-val.ph { color:#cbd5e1; font-weight:400; font-style:italic; }
+  .status-pill { display:inline-flex; align-items:center; gap:.3rem; font-size:.75rem; font-weight:600; padding:.2rem .65rem; border-radius:99px; }
+  .status-pill.active   { background:#dcfce7; color:#15803d; }
+  .status-pill.inactive { background:#fee2e2; color:#b91c1c; }
+  .elig-pill { display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; font-weight:700; padding:.2rem .65rem; border-radius:99px; text-transform:uppercase; letter-spacing:.04em; }
+  .elig-pill.q  { background:#dcfce7; color:#15803d; }
+  .elig-pill.nq { background:#fee2e2; color:#b91c1c; }
+  .elig-pill.p  { background:#fef9c3; color:#854d0e; }
+  .required-note { font-size:.72rem; color:#94a3b8; padding-top:.75rem; border-top:1px solid #f1f5f9; }
+  /* avatar preview */
+  .avatar-preview { width:52px; height:52px; border-radius:12px; background:#2563eb; color:#fff; font-size:1.25rem; font-weight:800; display:flex; align-items:center; justify-content:center; margin:0 auto .75rem; }
+  /* existing family members banner */
+  .family-banner { background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:1rem 1.15rem; margin-bottom:1rem; }
+  .family-banner-hdr { display:flex; align-items:center; gap:.55rem; font-size:.85rem; font-weight:700; color:#1e40af; margin-bottom:.75rem; }
+  .family-banner-hdr .fb-badge { background:#2563eb; color:#fff; font-size:.7rem; font-weight:700; padding:.1rem .5rem; border-radius:99px; }
+  .family-list { display:flex; flex-direction:column; gap:.5rem; }
+  .family-chip { display:flex; align-items:center; gap:.65rem; background:#fff; border:1px solid #dbeafe; border-radius:10px; padding:.55rem .75rem; }
+  .family-chip .fc-avatar { width:34px; height:34px; border-radius:8px; background:#dbeafe; color:#1e40af; font-size:.8rem; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .family-chip .fc-info { flex:1; min-width:0; }
+  .family-chip .fc-name { font-size:.82rem; font-weight:600; color:#0f172a; text-decoration:none; }
+  .family-chip .fc-name:hover { color:#2563eb; text-decoration:underline; }
+  .family-chip .fc-meta { font-size:.72rem; color:#64748b; }
+  .family-chip .fc-rel { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#2563eb; background:#eff6ff; padding:.15rem .55rem; border-radius:99px; white-space:nowrap; }
+  /* signature pad */
+  .sig-pad-wrap { position:relative; border:2px dashed #cbd5e1; border-radius:10px; background:#fff; overflow:hidden; }
+  .sig-pad-wrap:focus-within, .sig-pad-wrap.active { border-color:#3b82f6; }
+  .sig-pad { display:block; width:100%; height:150px; touch-action:none; cursor:crosshair; }
+  .sig-hint { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:.4rem; color:#cbd5e1; font-size:.95rem; font-weight:600; pointer-events:none; }
+  /* live ID card preview */
+  .idprev-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); padding:1rem 1.15rem; margin-bottom:1.25rem; }
+  .idprev-hdr { display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color:#0f172a; margin-bottom:.85rem; }
+  .idprev-hdr i { color:#f97316; }
+</style>
+
+<!-- Breadcrumb + page title -->
+<div class="ben-breadcrumb mb-1">
+  <a href="{% url 'beneficiaries:list' %}"><i class="bi bi-person-check"></i> Beneficiaries</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>{{ action }}</span>
+</div>
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-person-plus-fill text-primary me-2"></i>{{ action }} Beneficiary</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">Fill in the details below to register a new beneficiary in the system.</p>
+  </div>
+  <a href="{% url 'beneficiaries:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to List
+  </a>
+</div>
+
+<div class="form-grid">
+  <!-- ── Main form card ── -->
+  <div class="form-card">
+    <div class="form-card-header">
+      <div class="hdr-icon"><i class="bi bi-person-vcard-fill"></i></div>
+      <div>
+        <h5>Beneficiary Information</h5>
+        <p>Complete all required fields. Eligibility is previewed in real-time.</p>
+      </div>
+    </div>
+
+    <div class="form-card-body">
+      <form method="post" id="benForm" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4 rounded-3" role="alert">
+          <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+          <div>{{ form.non_field_errors }}</div>
+        </div>
+        {% endif %}
+
+        <!-- ── Personal Information ── -->
+        <div class="section-divider"><span><i class="bi bi-person me-1"></i>Personal Information</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.last_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">First Name <span class="text-danger">*</span></label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.first_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Middle Name <span class="text-muted fw-normal">(optional)</span></label>
+            {{ form.middle_name }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Sex</label>
+            {{ form.sex }}
+          </div>
+        </div>
+
+        <!-- ── Classification & Eligibility ── -->
+        <div class="section-divider"><span><i class="bi bi-clipboard2-check me-1"></i>Classification &amp; Eligibility</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Beneficiary Class <span class="text-danger">*</span></label>
+            {{ form.beneficiary_class }}
+            {% if form.beneficiary_class.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.beneficiary_class.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Monthly Income <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text">₱</span>
+              {{ form.monthly_income }}
+            </div>
+            {% if form.monthly_income.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.monthly_income.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <!-- Live eligibility preview -->
+        <div id="eligCard" class="elig-card pending mb-3" style="display:none">
+          <div class="elig-title">
+            <i id="eligIcon" class="bi bi-question-circle-fill"></i>
+            <span id="eligLabel">Pending</span>
+          </div>
+          <p id="eligReason" class="elig-reason mb-0"></p>
+          <p class="elig-note mb-0"><i class="bi bi-info-circle"></i> Preview based on: beneficiary class, grant history / prior grant date, and monthly income vs ₱{{ income_threshold|floatformat:0 }} threshold.</p>
+        </div>
+
+        <!-- ── Contact & Address ── -->
+        <div class="section-divider"><span><i class="bi bi-geo-alt me-1"></i>Contact &amp; Address</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Contact Number</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+              {{ form.contact_number }}
+            </div>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Street Address</label>
+            {{ form.address }}
+          </div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Barangay</label>
+            {{ form.barangay }}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Municipality / City</label>
+            {{ form.municipality }}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Province</label>
+            {{ form.province }}
+          </div>
+        </div>
+
+        <!-- ── Identification ── -->
+        <div class="section-divider"><span><i class="bi bi-credit-card-2-front me-1"></i>Identification</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">
+              RFID / ID Number
+              <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 title="Used for RFID tap and fingerprint lookup at the check station."></i>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+              {{ form.rfid_id }}
+            </div>
+            {% if form.rfid_id.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.rfid_id.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Notes <span class="text-muted fw-normal">(optional)</span></label>
+            {{ form.notes }}
+          </div>
+        </div>
+
+        <!-- ── Signature ── -->
+        <div class="section-divider"><span><i class="bi bi-vector-pen me-1"></i>Signature</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-12">
+            <label class="form-label">
+              Beneficiary Signature <span class="text-muted fw-normal">(optional — printed on the ID card)</span>
+            </label>
+            <div class="sig-pad-wrap" id="sigWrap">
+              <canvas id="sigPad" class="sig-pad"></canvas>
+              <div class="sig-hint" id="sigHint"><i class="bi bi-pencil"></i> Sign here — mouse, pen, or touch</div>
+            </div>
+            <div class="d-flex align-items-center gap-2 mt-2">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="sigClear">
+                <i class="bi bi-eraser me-1"></i>Clear
+              </button>
+              <span class="text-muted" style="font-size:.75rem">
+                <i class="bi bi-arrow-right"></i> Updates the ID preview instantly.
+              </span>
+            </div>
+            {{ form.signature }}
+          </div>
+        </div>
+
+        <!-- ── Grant History ── -->
+        <div class="section-divider"><span><i class="bi bi-calendar-check me-1"></i>Prior Grant History</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label">
+              Date of Last Grant Received
+              <span class="text-muted fw-normal">(prior to registration)</span>
+            </label>
+            <div class="date-input-wrap{% if last_system_grant %} grant-locked{% endif %}">
+              {# Visible flatpickr input — shows formatted date #}
+              <input type="text" id="prior_grant_display"
+                     class="form-control"
+                     placeholder="Select date…"
+                     autocomplete="off" readonly
+                     {% if last_system_grant %}disabled{% endif %}>
+              <button type="button" class="date-icon-btn" id="btnPickGrant" tabindex="-1" aria-label="Open calendar"
+                      {% if last_system_grant %}disabled{% endif %}>
+                <i class="bi bi-{% if last_system_grant %}lock-fill{% else %}calendar3{% endif %}"></i>
+              </button>
+            </div>
+            {# Hidden field — keeps YYYY-MM-DD sent to Django #}
+            <div style="display:none">{{ form.prior_grant_date }}</div>
+            {% if last_system_grant %}
+            <div class="form-text mt-1 text-primary">
+              <i class="bi bi-info-circle-fill me-1"></i>
+              Locked — this person has a released program grant on record. The cooldown is
+              tracked automatically from that grant, so this field can't be edited.
+            </div>
+            {% else %}
+            <div class="form-text mt-1">Leave blank if this person had no prior assistance.</div>
+            {% endif %}
+            {% if form.prior_grant_date.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.prior_grant_date.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-7 d-flex flex-column gap-2 pt-1" style="margin-top:1.65rem">
+            <div id="grantWarnBanner" class="cooldown-banner warn">
+              <strong><i class="bi bi-exclamation-triangle-fill me-1"></i>3-month cooldown active.</strong>
+              This person is <strong>NOT QUALIFIED</strong> until <span id="cooldownEnd"></span>.
+            </div>
+            <div id="grantOkBanner" class="cooldown-banner ok">
+              <i class="bi bi-check-circle-fill me-1"></i>
+              Grant on <strong><span id="grantClearDate"></span></strong> is outside the 3-month window — cooldown has expired.
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Family Members ── -->
+        <div class="section-divider"><span><i class="bi bi-people me-1"></i>Family Members</span></div>
+
+        {% if existing_family_members %}
+        <div class="family-banner">
+          <div class="family-banner-hdr">
+            <i class="bi bi-people-fill"></i>
+            This person has family members
+            <span class="fb-badge">{{ existing_family_members|length }}</span>
+          </div>
+          <div class="family-list">
+            {% for fm in existing_family_members %}
+            <div class="family-chip">
+              <div class="fc-avatar">{{ fm.person.first_name.0 }}{{ fm.person.last_name.0 }}</div>
+              <div class="fc-info">
+                <a class="fc-name" href="{% url 'beneficiaries:detail' fm.person.pk %}">{{ fm.person.full_name }}</a>
+                <div class="fc-meta">
+                  {{ fm.person.beneficiary_class }}{% if fm.age %} · Age {{ fm.age }}{% endif %}
+                </div>
+              </div>
+              <span class="fc-rel">{{ fm.relationship }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {{ formset.management_form }}
+        <div id="family-members-wrapper">
+          {% for member_form in formset %}
+          <div class="family-member-row row g-2 mb-2 align-items-center">
+            {% if member_form.instance.pk %}{{ member_form.id }}{% else %}{{ member_form.id }}{% endif %}
+            <div class="col-md-5">
+              <label class="form-label visually-hidden">Beneficiary</label>
+              {{ member_form.member }}
+              {% if member_form.member.errors %}<div class="invalid-feedback d-block" style="font-size:.75rem">{{ member_form.member.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label visually-hidden">Relationship</label>
+              {{ member_form.relationship }}
+              {% if member_form.relationship.errors %}<div class="invalid-feedback d-block" style="font-size:.75rem">{{ member_form.relationship.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label visually-hidden">Age</label>
+              {{ member_form.age }}
+            </div>
+            <div class="col-md-2 d-flex align-items-center gap-2">
+              {% if member_form.instance.pk %}
+              <div class="form-check mb-0" title="Remove this member">
+                {{ member_form.DELETE }}
+                <label class="form-check-label text-danger" style="font-size:.75rem;cursor:pointer" for="{{ member_form.DELETE.id_for_label }}">
+                  <i class="bi bi-trash3"></i> Remove
+                </label>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" id="addMemberBtn" class="btn btn-outline-primary btn-sm mt-1 mb-3">
+          <i class="bi bi-plus-circle me-1"></i>Add Member
+        </button>
+
+        <!-- ── Status ── -->
+        <div class="section-divider"><span><i class="bi bi-toggle-on me-1"></i>Status</span></div>
+
+        <div class="toggle-row mb-4">
+          <div class="toggle-info">
+            <h6>Active Beneficiary</h6>
+            <p>Inactive beneficiaries are hidden from normal check operations.</p>
+          </div>
+          <div class="form-check form-switch mb-0">
+            {{ form.is_active }}
+          </div>
+        </div>
+
+        <!-- ── Actions ── -->
+        <div class="form-actions">
+          <button type="submit" class="btn btn-save" id="submitBtn">
+            <i class="bi bi-floppy-fill"></i>
+            <span id="submitTxt">Save Beneficiary</span>
+          </button>
+          <a href="{% url 'beneficiaries:list' %}" class="btn btn-cancel">
+            <i class="bi bi-x-lg me-1"></i>Cancel
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div><!-- /form-card -->
+
+  <!-- ── Summary sidebar ── -->
+  <aside>
+    <!-- Live e-Bahagi ID card preview -->
+    <div class="idprev-card">
+      <div class="idprev-hdr"><i class="bi bi-person-vcard-fill"></i> e-Bahagi ID Preview</div>
+      <div class="ecard" id="idPreview">
+        <div class="band-top"></div>
+        <div class="band-bottom"></div>
+        <div class="blob"></div>
+        <div class="hdr">
+          {% if system_logo.has_logo %}
+          <img class="seal seal-img" src="{{ system_logo.logo.url }}" alt="{{ system_logo.alt_text }}">
+          {% else %}
+          <div class="seal">LA<br>UNION</div>
+          {% endif %}
+          <div class="gov">
+            <p>Republic of the Philippines</p>
+            <p>Province of La Union</p>
+            <h1>MUNICIPALITY OF BACNOTAN</h1>
+            <div class="rule"></div>
+          </div>
+        </div>
+        <div class="title"><span class="e">e-</span><span class="b">Bahagi</span><span class="id">ID</span></div>
+        <div class="idno"><span class="k">ID No.:</span><span class="v" id="pvIdNo">—</span></div>
+        <div class="photo"><div class="ph-note">QR added<br>after saving</div></div>
+        <div class="fields">
+          <div class="frow"><span class="lbl">Last Name</span><span class="val" id="pvLast"></span></div>
+          <div class="frow"><span class="lbl">First Name</span><span class="val" id="pvFirst"></span></div>
+          <div class="frow"><span class="lbl">Middle Name</span><span class="val" id="pvMiddle"></span></div>
+          <div class="frow"><span class="lbl">Birthdate</span><span class="val">&nbsp;</span></div>
+          <div class="frow"><span class="lbl">Address</span><span class="val" id="pvAddr" style="font-size:1.6cqw"></span></div>
+        </div>
+        <div class="sign">
+          <div class="space"><img class="sig-img" id="pvSig" alt="" style="display:none"></div>
+          <div class="line">Signature</div>
+        </div>
+      </div>
+      <p class="text-muted mt-2 mb-0" style="font-size:.72rem">
+        <i class="bi bi-info-circle"></i> QR code &amp; ID number are generated after you save.
+      </p>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-card-hdr">
+        <i class="bi bi-clipboard2-data-fill"></i> Live Preview
+      </div>
+      <div class="summary-body">
+        <div class="text-center mb-2">
+          <div class="avatar-preview" id="previewAvatar">?</div>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Full Name</span>
+          <span class="summary-val ph" id="previewName">Not set</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Class</span>
+          <span class="summary-val ph" id="previewClass">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Monthly Income</span>
+          <span class="summary-val ph" id="previewIncome">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Contact</span>
+          <span class="summary-val ph" id="previewContact">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">RFID / ID</span>
+          <span class="summary-val ph" id="previewRfid">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Prior Grant</span>
+          <span class="summary-val ph" id="previewGrant">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Status</span>
+          <span id="previewStatus">
+            <span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>
+          </span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Eligibility</span>
+          <span id="previewElig">
+            <span class="elig-pill p"><i class="bi bi-question-circle-fill"></i> Pending</span>
+          </span>
+        </div>
+      </div>
+      <p class="required-note px-3 pb-3 mb-0">
+        <i class="bi bi-asterisk text-danger me-1" style="font-size:.6rem"></i>
+        Fields marked with <span class="text-danger">*</span> are required.
+      </p>
+    </div>
+  </aside>
+</div><!-- /form-grid -->
+{% endblock %}
+
+{# ── All JS after Bootstrap bundle ── #}
+{% block extra_js %}
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
+<script>
+(function () {
+  const VALID_CLASSES    = {{ valid_classes_json|safe }};
+  const INCOME_THRESHOLD = {{ income_threshold }};
+  const COOLDOWN_DAYS    = 90;
+  // Most recent RELEASED grant already on file (YYYY-MM-DD, or "" if none).
+  // The preview must respect this even if the manual prior-grant field is empty.
+  const SYSTEM_GRANT_YMD = "{{ last_system_grant }}";
+  // When a released program grant is on record, the prior-grant field is locked.
+  const GRANT_LOCKED     = {% if last_system_grant %}true{% else %}false{% endif %};
+  // Household rule: a family member who received a grant blocks this person too.
+  const FAMILY_BLOCKER   = "{{ family_blocker|escapejs }}";
+
+  /* ── DOM refs ── */
+  const classField     = document.getElementById('id_beneficiary_class');
+  const incomeField    = document.getElementById('id_monthly_income');
+  const grantDateField = document.getElementById('id_prior_grant_date');   // hidden YYYY-MM-DD
+  const displayInput   = document.getElementById('prior_grant_display');    // visible picker
+  const eligCard       = document.getElementById('eligCard');
+  const eligIcon       = document.getElementById('eligIcon');
+  const eligLabel      = document.getElementById('eligLabel');
+  const eligReason     = document.getElementById('eligReason');
+  const grantWarn      = document.getElementById('grantWarnBanner');
+  const grantOk        = document.getElementById('grantOkBanner');
+  const cooldownEndEl  = document.getElementById('cooldownEnd');
+
+  /* ── Tooltips ── */
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+    new bootstrap.Tooltip(el, { trigger: 'hover focus' })
+  );
+
+  /* ── Date helpers ── */
+  const pad = n => String(n).padStart(2, '0');
+  const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+  const dateToYMD = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const addDays = (ymd, days) => {
+    const [y,m,d] = ymd.split('-').map(Number);
+    return dateToYMD(new Date(y, m-1, d+days));
+  };
+  const isWithinCooldown = ymd => !!ymd && ymd >= addDays(todayStr(), -COOLDOWN_DAYS);
+  const fmtDate = ymd => {
+    const [y,m,d] = ymd.split('-').map(Number);
+    return new Date(y, m-1, d).toLocaleDateString('en-PH', {year:'numeric',month:'long',day:'numeric'});
+  };
+
+  /* ── Flatpickr quick-bar ── */
+  function addQuickBar(fp, opts) {
+    const bar = document.createElement('div');
+    bar.className = 'fp-quick-bar';
+    if (opts.today) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = 'Today';
+      b.addEventListener('click', () => { fp.setDate(new Date(), true); fp.close(); });
+      bar.appendChild(b);
+    }
+    if (opts.clear) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'fp-clear'; b.textContent = 'Clear';
+      b.addEventListener('click', () => { fp.clear(); fp.close(); });
+      bar.appendChild(b);
+    }
+    fp.calendarContainer.appendChild(bar);
+  }
+
+  /* ── Flatpickr — prior grant date ── */
+  const fpGrant = flatpickr(displayInput, {
+    dateFormat  : 'F j, Y',    // shown in visible input
+    maxDate     : 'today',
+    allowInput  : false,
+    clickOpens  : !GRANT_LOCKED,   // don't open the calendar when locked
+    disableMobile: true,
+    onReady(_, __, fp) { if (!GRANT_LOCKED) addQuickBar(fp, { today: true, clear: true }); },
+    onChange(dates) {
+      if (grantDateField) grantDateField.value = dates.length ? dateToYMD(dates[0]) : '';
+      updateGrantBanners();
+      updateEligibility();
+      updateSidebar();
+    },
+  });
+
+  /* Icon trigger */
+  document.getElementById('btnPickGrant')?.addEventListener('click', () => { if (!GRANT_LOCKED) fpGrant.open(); });
+
+  /* Pre-populate when editing an existing record */
+  if (grantDateField?.value) {
+    const [y,m,d] = grantDateField.value.split('-').map(Number);
+    fpGrant.setDate(new Date(y, m-1, d), false);
+  }
+
+  /* ── Cooldown from EITHER the manual prior-grant field OR a system grant ── */
+  /* Returns the cooldown-end date (YYYY-MM-DD) driven by whichever grant is
+     within the window and latest; "" when no grant is in cooldown. */
+  function activeCooldownEndYmd() {
+    const inCd = [];
+    const pf = grantDateField?.value || '';
+    if (isWithinCooldown(pf)) inCd.push(pf);
+    if (isWithinCooldown(SYSTEM_GRANT_YMD)) inCd.push(SYSTEM_GRANT_YMD);
+    if (!inCd.length) return '';
+    const latest = inCd.sort().slice(-1)[0];   // YYYY-MM-DD sorts chronologically
+    return addDays(latest, COOLDOWN_DAYS);
+  }
+
+  /* ── Grant cooldown banners ── */
+  function updateGrantBanners() {
+    const ymd  = grantDateField?.value || '';
+    const cdEnd = activeCooldownEndYmd();
+    if (cdEnd) {
+      grantWarn.style.display = '';
+      grantOk.style.display   = 'none';
+      cooldownEndEl.textContent = fmtDate(cdEnd);
+    } else if (ymd) {
+      grantWarn.style.display = 'none';
+      grantOk.style.display   = '';
+      const el = document.getElementById('grantClearDate');
+      if (el) el.textContent = fmtDate(ymd);
+    } else {
+      grantWarn.style.display = 'none';
+      grantOk.style.display   = 'none';
+    }
+  }
+
+  /* ── Live eligibility card ── */
+  function updateEligibility() {
+    const cls    = classField?.value || '';
+    const raw    = incomeField?.value.trim() || '';
+    const income = raw === '' ? NaN : parseFloat(raw);
+    const ymd    = grantDateField?.value || '';
+
+    if (!cls && isNaN(income) && !ymd) { eligCard.style.display='none'; setEligPill('p'); return; }
+    eligCard.style.display = '';
+
+    if (!cls || !VALID_CLASSES.includes(cls)) {
+      setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED', 'Not a member of any valid beneficiary class.'); return;
+    }
+    const cdEnd = activeCooldownEndYmd();
+    if (cdEnd) {
+      setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED',
+        'Grant received within the last 3 months — cooldown ends ' + fmtDate(cdEnd) + '.'); return;
+    }
+    if (FAMILY_BLOCKER) {
+      setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED',
+        'A family member (' + FAMILY_BLOCKER + ') received a grant within the last 3 months.'); return;
+    }
+    if (!isNaN(income) && income < INCOME_THRESHOLD) {
+      setElig('q', 'bi-check-circle-fill', 'QUALIFIED',
+        'Valid class \u2713\u2002 No recent grant \u2713\u2002 Income below \u20b1' +
+        INCOME_THRESHOLD.toLocaleString('en-PH') + ' \u2713'); return;
+    }
+    if (!isNaN(income) && income >= INCOME_THRESHOLD) {
+      setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED',
+        'Monthly income (\u20b1' + income.toLocaleString('en-PH',{minimumFractionDigits:2}) +
+        ') is not below \u20b1' + INCOME_THRESHOLD.toLocaleString('en-PH',{minimumFractionDigits:2}) + '.'); return;
+    }
+    setElig('p', 'bi-question-circle-fill', 'Enter income to complete preview',
+      'Monthly income is required to determine eligibility.');
+  }
+
+  function setElig(type, ico, lbl, rsn) {
+    const map = { q: 'qualified', nq: 'not-qualified', p: 'pending' };
+    eligCard.className = 'elig-card ' + (map[type] || 'pending') + ' mb-3';
+    eligIcon.className = 'bi ' + ico;
+    eligLabel.textContent = lbl;
+    eligReason.textContent = rsn;
+    setEligPill(type);
+  }
+  function setEligPill(type) {
+    const el = document.getElementById('previewElig');
+    if (!el) return;
+    const map = {
+      q:  '<span class="elig-pill q"><i class="bi bi-check-circle-fill"></i> Qualified</span>',
+      nq: '<span class="elig-pill nq"><i class="bi bi-x-circle-fill"></i> Not Qualified</span>',
+      p:  '<span class="elig-pill p"><i class="bi bi-question-circle-fill"></i> Pending</span>',
+    };
+    el.innerHTML = map[type] || map.p;
+  }
+
+  /* ── Sidebar live preview ── */
+  const fmt = n => n ? '\u20b1\u202f' + parseFloat(n).toLocaleString('en-PH',{minimumFractionDigits:2}) : null;
+  function sv(id, val, ph) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (val) { el.textContent = val; el.classList.remove('ph'); }
+    else     { el.textContent = ph;  el.classList.add('ph'); }
+  }
+
+  function updateSidebar() {
+    const ln = document.getElementById('id_last_name')?.value.trim()  || '';
+    const fn = document.getElementById('id_first_name')?.value.trim() || '';
+    const mn = document.getElementById('id_middle_name')?.value.trim() || '';
+    const fullName = [fn, mn ? mn[0]+'.' : '', ln].filter(Boolean).join(' ');
+
+    sv('previewName', fullName || null, 'Not set');
+    sv('previewClass', classField?.value || null, '—');
+    sv('previewIncome', fmt(incomeField?.value), '—');
+    sv('previewContact', document.getElementById('id_contact_number')?.value.trim() || null, '—');
+    sv('previewRfid', document.getElementById('id_rfid_id')?.value.trim() || null, '—');
+
+    const ymd = grantDateField?.value || '';
+    sv('previewGrant', ymd ? fmtDate(ymd) : null, '—');
+
+    /* avatar initials */
+    const av = document.getElementById('previewAvatar');
+    if (av) av.textContent = (fn[0] || '') + (ln[0] || '') || '?';
+
+    /* status pill */
+    const activeChk = document.getElementById('id_is_active');
+    const ps = document.getElementById('previewStatus');
+    if (ps) {
+      ps.innerHTML = activeChk?.checked
+        ? '<span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>'
+        : '<span class="status-pill inactive"><i class="bi bi-x-circle-fill"></i> Inactive</span>';
+    }
+  }
+
+  /* ── Wire events ── */
+  ['id_last_name','id_first_name','id_middle_name','id_contact_number','id_rfid_id'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateSidebar);
+  });
+  classField?.addEventListener('change',  () => { updateEligibility(); updateSidebar(); });
+  incomeField?.addEventListener('input',  () => { updateEligibility(); updateSidebar(); });
+  document.getElementById('id_is_active')?.addEventListener('change', updateSidebar);
+
+  /* ── Client-side validation ── */
+  const form = document.getElementById('benForm');
+  const submitBtn = document.getElementById('submitBtn');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      let valid = true;
+      ['id_last_name','id_first_name','id_beneficiary_class','id_monthly_income'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) { el.classList.add('is-invalid'); valid = false; }
+        else if (el) el.classList.remove('is-invalid');
+      });
+      if (!valid) { e.preventDefault(); return; }
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+    });
+    form.querySelectorAll('.form-control,.form-select').forEach(el =>
+      el.addEventListener('input', () => el.classList.remove('is-invalid'))
+    );
+  }
+
+  /* ── Init ── */
+  updateGrantBanners();
+  updateEligibility();
+  updateSidebar();
+})();
+</script>
+
+<script>
+/* ── Dynamic family member rows ── */
+(function () {
+  const wrapper  = document.getElementById('family-members-wrapper');
+  const addBtn   = document.getElementById('addMemberBtn');
+  const totalFld = document.getElementById('id_family_members-TOTAL_FORMS');
+  if (!wrapper || !addBtn || !totalFld) return;
+
+  addBtn.addEventListener('click', function () {
+    const idx   = parseInt(totalFld.value, 10);
+    const tmpl  = wrapper.querySelector('.family-member-row');
+    if (!tmpl) return;
+    const clone = tmpl.cloneNode(true);
+    // Re-index all name/id attributes
+    clone.querySelectorAll('[name],[id],[for]').forEach(el => {
+      ['name','id','for'].forEach(attr => {
+        const v = el.getAttribute(attr);
+        if (v) el.setAttribute(attr, v.replace(/-\d+-/, '-' + idx + '-'));
+      });
+    });
+    // Clear values in new row
+    clone.querySelectorAll('input:not([type=hidden]),select').forEach(el => {
+      if (el.type === 'checkbox') el.checked = false;
+      else el.value = '';
+    });
+    // Remove the "Remove" delete checkbox section (it's only for existing records)
+    const delDiv = clone.querySelector('.form-check');
+    if (delDiv) delDiv.remove();
+    wrapper.appendChild(clone);
+    totalFld.value = idx + 1;
+  });
+})();
+</script>
+
+<script>
+/* ── Live e-Bahagi ID card preview + signature capture ── */
+(function () {
+  var val = function (id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v || ''; };
+
+  function updateIdPreview() {
+    set('pvLast',   val('id_last_name'));
+    set('pvFirst',  val('id_first_name'));
+    set('pvMiddle', val('id_middle_name'));
+    var addr = [val('id_address'), val('id_barangay'), val('id_municipality')].filter(Boolean).join(', ');
+    set('pvAddr', addr);
+    set('pvIdNo', val('id_rfid_id') || '—');
+  }
+
+  ['id_last_name','id_first_name','id_middle_name','id_address','id_barangay','id_municipality','id_rfid_id']
+    .forEach(function (id) { var e = document.getElementById(id); if (e) e.addEventListener('input', updateIdPreview); });
+  updateIdPreview();
+
+  /* ── Signature pad ── */
+  var canvas = document.getElementById('sigPad');
+  if (!canvas) return;
+  var ctx    = canvas.getContext('2d');
+  var hidden = document.getElementById('id_signature');
+  var hint   = document.getElementById('sigHint');
+  var wrap   = document.getElementById('sigWrap');
+  var pvSig  = document.getElementById('pvSig');
+  var drawing = false, dirty = false, last = null;
+
+  function fitCanvas() {
+    var ratio = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    var keep = dirty ? canvas.toDataURL() : null;   // preserve strokes across resize
+    canvas.width = w * ratio; canvas.height = h * ratio;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 3.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f172a';
+    if (keep) { var img = new Image(); img.onload = function () { ctx.drawImage(img, 0, 0, w, h); }; img.src = keep; }
+  }
+  function point(e) {
+    var r = canvas.getBoundingClientRect();
+    var p = e.touches && e.touches.length ? e.touches[0] : e;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  }
+  function start(e) { drawing = true; last = point(e); wrap.classList.add('active'); e.preventDefault(); }
+  function move(e) {
+    if (!drawing) return;
+    var p = point(e);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p;
+    if (!dirty) { dirty = true; hint.style.display = 'none'; }
+    e.preventDefault();
+  }
+  function stop() { if (!drawing) return; drawing = false; wrap.classList.remove('active'); commit(); }
+
+  /* Crop the canvas to the drawn strokes (trim transparent margins) so the
+     saved signature centers and fills the space on the ID card. */
+  function trimmedDataURL() {
+    var W = canvas.width, H = canvas.height;                 // device pixels
+    var data = ctx.getImageData(0, 0, W, H).data;
+    var minX = W, minY = H, maxX = 0, maxY = 0, found = false;
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        if (data[(y * W + x) * 4 + 3] > 12) {               // non-transparent pixel
+          found = true;
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (!found) return '';
+    var pad = Math.round(8 * (window.devicePixelRatio || 1));
+    minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+    maxX = Math.min(W - 1, maxX + pad); maxY = Math.min(H - 1, maxY + pad);
+    var cw = maxX - minX + 1, ch = maxY - minY + 1;
+    var out = document.createElement('canvas');
+    out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    return out.toDataURL('image/png');
+  }
+
+  function commit() {
+    if (!dirty) return;
+    var url = trimmedDataURL();
+    if (!url) return;
+    if (hidden) hidden.value = url;
+    if (pvSig) { pvSig.src = url; pvSig.style.display = ''; }
+  }
+
+  canvas.addEventListener('mousedown', start);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', stop);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', stop);
+
+  document.getElementById('sigClear').addEventListener('click', function () {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    dirty = false;
+    if (hidden) hidden.value = '';
+    if (pvSig) { pvSig.src = ''; pvSig.style.display = 'none'; }
+    hint.style.display = '';
+  });
+
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  /* Pre-populate when editing a beneficiary that already has a signature */
+  if (hidden && hidden.value) {
+    var existing = new Image();
+    existing.onload = function () {
+      var cw = canvas.clientWidth, ch = canvas.clientHeight;
+      var scale = Math.min(cw / existing.width, ch / existing.height, 1);
+      var dw = existing.width * scale, dh = existing.height * scale;
+      ctx.drawImage(existing, (cw - dw) / 2, (ch - dh) / 2, dw, dh);   // centered, keep aspect
+      dirty = true; hint.style.display = 'none';
+    };
+    existing.src = hidden.value;
+    if (pvSig) { pvSig.src = hidden.value; pvSig.style.display = ''; }
+  }
+})();
+</script>
+{% endblock %}

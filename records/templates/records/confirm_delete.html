@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Delete Record{% endblock %}
+{% block content %}
+<style>
+  .del-card { background:#fff; border-radius:14px; border:1px solid #fecaca; box-shadow:0 1px 4px rgba(0,0,0,.06); max-width:520px; overflow:hidden; }
+  .del-card-header { background:#fef2f2; border-bottom:1px solid #fecaca; padding:1.25rem 1.5rem; display:flex; align-items:center; gap:.75rem; }
+  .del-icon { width:42px; height:42px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
+  .del-card-body { padding:1.5rem; }
+  .record-preview { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+  .record-preview .rp-row { display:flex; align-items:baseline; gap:.5rem; padding:.3rem 0; font-size:.875rem; }
+  .record-preview .rp-lbl { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; min-width:80px; }
+  .record-preview .rp-val { font-weight:600; color:#0f172a; }
+  .badge-released  { background:#dcfce7; color:#15803d; font-weight:600; font-size:.72rem; padding:.2rem .6rem; border-radius:99px; }
+  .badge-pending   { background:#fef9c3; color:#854d0e; font-weight:600; font-size:.72rem; padding:.2rem .6rem; border-radius:99px; }
+  .badge-cancelled { background:#f1f5f9; color:#64748b; font-weight:600; font-size:.72rem; padding:.2rem .6rem; border-radius:99px; }
+</style>
+
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-trash text-danger me-2"></i>Delete Grant Record</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">This action cannot be undone.</p>
+  </div>
+  <a href="{% url 'records:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Records
+  </a>
+</div>
+
+<div class="del-card">
+  <div class="del-card-header">
+    <div class="del-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+    <div>
+      <div style="font-size:.95rem;font-weight:700;color:#991b1b">Confirm Deletion</div>
+      <div style="font-size:.78rem;color:#b91c1c;margin-top:.1rem">You are about to permanently delete this grant record.</div>
+    </div>
+  </div>
+  <div class="del-card-body">
+
+    <div class="record-preview">
+      <div class="rp-row">
+        <span class="rp-lbl">Beneficiary</span>
+        <span class="rp-val">{{ record.beneficiary }}</span>
+      </div>
+      <div class="rp-row">
+        <span class="rp-lbl">Program</span>
+        <span class="rp-val">{{ record.program.name }}</span>
+      </div>
+      <div class="rp-row">
+        <span class="rp-lbl">Amount</span>
+        <span class="rp-val" style="color:#15803d">₱{{ record.amount|floatformat:2 }}</span>
+      </div>
+      <div class="rp-row">
+        <span class="rp-lbl">Date</span>
+        <span class="rp-val">{{ record.date_granted }}</span>
+      </div>
+      <div class="rp-row">
+        <span class="rp-lbl">Status</span>
+        <span>
+          {% if record.status == 'released' %}<span class="badge-released"><i class="bi bi-check-circle-fill me-1"></i>Released</span>
+          {% elif record.status == 'pending' %}<span class="badge-pending"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+          {% else %}<span class="badge-cancelled"><i class="bi bi-x-circle me-1"></i>Cancelled</span>{% endif %}
+        </span>
+      </div>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger px-4" style="border-radius:8px;font-weight:600">
+          <i class="bi bi-trash-fill me-1"></i>Yes, Delete Record
+        </button>
+        <a href="{% url 'records:list' %}" class="btn btn-outline-secondary" style="border-radius:8px">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

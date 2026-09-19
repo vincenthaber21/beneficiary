@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Audit Trails{% endblock %}
+{% block content %}
+<style>
+  .stat-card { background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:1.1rem 1.25rem; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; gap:1rem; }
+  .stat-card .stat-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
+  .stat-card .stat-val  { font-size:1.6rem; font-weight:800; line-height:1; color:#0f172a; }
+  .stat-card .stat-lbl  { font-size:.75rem; color:#64748b; margin-top:.15rem; }
+  .filter-card { background:#fff; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,.06); padding:1rem 1.25rem; margin-bottom:1.25rem; }
+  .action-pill { display:inline-block; padding:.2rem .65rem; border-radius:99px; font-size:.72rem; font-weight:600; color:#fff; white-space:nowrap; }
+  .action-login { background:#166534; }
+  .action-logout { background:#334155; }
+  .action-login_failed { background:#991b1b; }
+  .action-module_open { background:#1d4ed8; }
+  .action-create { background:#0f766e; }
+  .action-update { background:#a16207; }
+  .action-delete { background:#b91c1c; }
+  .action-view { background:#475569; }
+  .action-export { background:#6d28d9; }
+  .action-import { background:#7c3aed; }
+  .action-backup { background:#0369a1; }
+  .action-restore { background:#c2410c; }
+  .action-other { background:#64748b; }
+  .path-cell { font-size:.75rem; color:#64748b; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .empty-state { text-align:center; padding:3.5rem 1rem; color:#94a3b8; }
+  .empty-state i { font-size:2.5rem; display:block; margin-bottom:.75rem; }
+</style>
+
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-shield-check text-primary me-2"></i>Audit Trails</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">
+      Security log of logins, logouts, modules opened, and actions across the system.
+    </p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><i class="bi bi-journal-text"></i></div>
+      <div>
+        <div class="stat-val">{{ total_count }}</div>
+        <div class="stat-lbl">Events shown</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#dcfce7;color:#15803d"><i class="bi bi-box-arrow-in-right"></i></div>
+      <div>
+        <div class="stat-val">{{ login_count }}</div>
+        <div class="stat-lbl">Logins</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#f1f5f9;color:#334155"><i class="bi bi-box-arrow-right"></i></div>
+      <div>
+        <div class="stat-val">{{ logout_count }}</div>
+        <div class="stat-lbl">Logouts</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fee2e2;color:#b91c1c"><i class="bi bi-exclamation-triangle"></i></div>
+      <div>
+        <div class="stat-val">{{ failed_count }}</div>
+        <div class="stat-lbl">Failed logins</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="filter-card">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-12 col-md-3">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">Search</label>
+      <input type="text" name="q" value="{{ filter_q }}" class="form-control form-control-sm" placeholder="User, path, IP, description…">
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">Action</label>
+      <select name="action" class="form-select form-select-sm">
+        <option value="">All actions</option>
+        {% for value, label in action_choices %}
+          <option value="{{ value }}" {% if filter_action == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">Module</label>
+      <select name="module" class="form-select form-select-sm">
+        <option value="">All modules</option>
+        {% for m in modules %}
+          <option value="{{ m }}" {% if filter_module == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">User</label>
+      <select name="username" class="form-select form-select-sm">
+        <option value="">All users</option>
+        {% for u in usernames %}
+          <option value="{{ u }}" {% if filter_username == u %}selected{% endif %}>{{ u }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-1">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">Result</label>
+      <select name="success" class="form-select form-select-sm">
+        <option value="">All</option>
+        <option value="1" {% if filter_success == "1" %}selected{% endif %}>OK</option>
+        <option value="0" {% if filter_success == "0" %}selected{% endif %}>Failed</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">From</label>
+      <input type="date" name="date_from" value="{{ filter_date_from }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.75rem;color:#64748b">To</label>
+      <input type="date" name="date_to" value="{{ filter_date_to }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-12 col-md-auto d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel"></i> Filter</button>
+      <a href="{% url 'core:audit_trails' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </div>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel-hdr">
+    <span><i class="bi bi-clock-history me-1"></i> Activity log ({{ total_count }})</span>
+    <span class="text-muted" style="font-size:.78rem">{{ module_open_count }} module opens in this filter</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Module</th>
+          <th>Description</th>
+          <th>IP</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in trails %}
+        <tr>
+          <td style="white-space:nowrap">{{ t.created_at|date:"Y-m-d H:i:s" }}</td>
+          <td class="fw-semibold">{{ t.username|default:"—" }}</td>
+          <td>
+            <span class="action-pill action-{{ t.action }}">{{ t.get_action_display }}</span>
+          </td>
+          <td>{{ t.module|default:"—" }}</td>
+          <td>
+            <div>{{ t.description }}</div>
+            {% if t.path %}<div class="path-cell" title="{{ t.method }} {{ t.path }}">{{ t.method }} {{ t.path }}</div>{% endif %}
+          </td>
+          <td style="white-space:nowrap">{{ t.ip_address|default:"—" }}</td>
+          <td>
+            {% if t.success %}
+              <span class="badge bg-success">OK</span>
+            {% else %}
+              <span class="badge bg-danger">Failed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <i class="bi bi-shield"></i>
+              <p>No audit events yet. Logins, module opens, and actions will appear here.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top" style="background:#f8fafc">
+    <span class="text-muted" style="font-size:.8rem">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ filter_q }}&action={{ filter_action }}&module={{ filter_module }}&username={{ filter_username }}&success={{ filter_success }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}">Prev</a>
+          </li>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ filter_q }}&action={{ filter_action }}&module={{ filter_module }}&username={{ filter_username }}&success={{ filter_success }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}">Next</a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

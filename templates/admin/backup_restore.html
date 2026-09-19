@@ -1,0 +1,143 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Backup &amp; Restore | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; Backup &amp; Restore
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  .br-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1rem;
+  }
+  @media (max-width: 900px) {
+    .br-grid { grid-template-columns: 1fr; }
+  }
+  .br-card {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--hairline-color, #e0e0e0);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+  .br-card h2 {
+    margin-top: 0;
+    font-size: 1.15rem;
+  }
+  .br-card p {
+    color: var(--body-quiet-color, #666);
+    line-height: 1.5;
+  }
+  .br-warn {
+    background: #fff8e6;
+    border: 1px solid #f0c36d;
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    margin: 1rem 0;
+    color: #5c4813;
+  }
+  .br-danger {
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    margin: 1rem 0;
+    color: #7a1f1a;
+  }
+  .br-meta {
+    font-size: 0.9rem;
+    color: var(--body-quiet-color, #666);
+    margin-bottom: 1.25rem;
+  }
+  .br-actions {
+    margin-top: 1rem;
+  }
+  .br-actions .button,
+  .br-actions input[type="submit"] {
+    margin-right: 0.5rem;
+  }
+  .br-field {
+    margin: 1rem 0;
+  }
+  .br-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  .br-field input[type="text"],
+  .br-field input[type="file"] {
+    width: 100%;
+    max-width: 420px;
+  }
+  .br-lock {
+    display: inline-block;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #0b5;
+    border: 1px solid #0b5;
+    border-radius: 4px;
+    padding: 0.15rem 0.45rem;
+    margin-bottom: 0.75rem;
+  }
+</style>
+
+<p class="br-meta">
+  <span class="br-lock">Superuser only</span><br>
+  Download a full system backup or restore from a previous backup.
+  Backups include the SQLite database and uploaded media files (photos, signatures, logos).
+</p>
+
+<div class="br-grid">
+  <section class="br-card">
+    <h2>Create backup</h2>
+    <p>
+      Generates a secure <code>.zip</code> archive with
+      <code>db.sqlite3</code>, optional <code>media/</code> files, and a
+      <code>manifest.json</code>. Store it offline in a safe location.
+    </p>
+    <div class="br-warn">
+      Keep backup files private — they contain personal beneficiary and citizen data.
+    </div>
+    <form method="post" class="br-actions">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="backup">
+      <input type="submit" class="default" value="Download backup">
+    </form>
+  </section>
+
+  <section class="br-card">
+    <h2>Restore backup</h2>
+    <p>
+      Replaces the current database (and media when included in the archive).
+      Accepts an e-BAHAGI <code>.zip</code> backup or a raw <code>.sqlite3</code> file.
+    </p>
+    <div class="br-danger">
+      <strong>Destructive action.</strong> Current data will be overwritten.
+      Download a fresh backup first. All users may need to sign in again after restore.
+    </div>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="restore">
+      <div class="br-field">
+        <label for="id_backup_file">Backup file</label>
+        <input id="id_backup_file" type="file" name="backup_file" accept=".zip,.sqlite3,.sqlite,.db" required>
+      </div>
+      <div class="br-field">
+        <label for="id_confirm_phrase">Type <code>{{ confirm_phrase }}</code> to confirm</label>
+        <input id="id_confirm_phrase" type="text" name="confirm_phrase" autocomplete="off" required placeholder="{{ confirm_phrase }}">
+      </div>
+      <div class="br-actions">
+        <input type="submit" value="Restore now" style="background:#ba2121;border-color:#a41515;">
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

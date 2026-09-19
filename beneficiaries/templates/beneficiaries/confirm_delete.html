@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Remove Beneficiary{% endblock %}
+{% block content %}
+<div class="page-hdr"><h2>Remove Beneficiary</h2></div>
+<div class="form-panel" style="max-width:500px">
+  <p class="text-danger fw-semibold">Are you sure you want to remove <strong>{{ beneficiary }}</strong>?</p>
+  <p class="text-muted small">This cannot be undone. Grant records linked to this beneficiary will be preserved.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger me-2">Yes, Remove</button>
+    <a href="{% url 'beneficiaries:list' %}" class="btn btn-light">Cancel</a>
+  </form>
+</div>
+{% endblock %}

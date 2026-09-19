@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ action }} Program{% endblock %}
+
+{# ── flatpickr CSS in <head> via the extra_css block ── #}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<style>
+  /* ── Override flatpickr theme to match app palette ── */
+  .flatpickr-calendar { font-family: system-ui,-apple-system,sans-serif; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .flatpickr-months { background: #2563eb; border-radius: 12px 12px 0 0; padding: .4rem 0; }
+  .flatpickr-months .flatpickr-month { color: #fff; fill: #fff; }
+  .flatpickr-current-month { color: #fff; font-size: .95rem; }
+  .flatpickr-current-month .flatpickr-monthDropdown-months { background: #2563eb; color: #fff; border: none; font-weight: 700; }
+  .flatpickr-current-month input.cur-year { color: #fff; font-weight: 700; }
+  .flatpickr-prev-month, .flatpickr-next-month { color: #fff !important; fill: #fff !important; }
+  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #bfdbfe !important; }
+  .flatpickr-weekday { color: #64748b !important; font-weight: 700 !important; font-size: .72rem !important; }
+  .flatpickr-day { border-radius: 8px !important; font-size: .82rem; color: #1e293b; }
+  .flatpickr-day:hover { background: #eff6ff; border-color: #eff6ff; }
+  .flatpickr-day.selected, .flatpickr-day.selected:hover { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; font-weight: 700; }
+  .flatpickr-day.today { border-color: #3b82f6 !important; color: #2563eb !important; font-weight: 700; }
+  .flatpickr-day.today:hover { background: #eff6ff !important; }
+  .flatpickr-day.today.selected { color: #fff !important; }
+  .flatpickr-day.inRange { background: #eff6ff !important; border-color: #eff6ff !important; }
+  .flatpickr-day.disabled { color: #cbd5e1 !important; }
+  .flatpickr-innerContainer { padding: .25rem .5rem .5rem; }
+  /* Input wrapper with calendar icon trigger */
+  .date-input-wrap { position: relative; }
+  .date-input-wrap .form-control { padding-right: 2.6rem; cursor: pointer; background: #fff; }
+  .date-input-wrap .date-icon-btn { position: absolute; right: 0; top: 0; height: 100%; width: 2.5rem; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; background: transparent; border: none; border-left: 1px solid #e2e8f0; border-radius: 0 8px 8px 0; transition: background .15s, color .15s; }
+  .date-input-wrap .date-icon-btn:hover { background: #eff6ff; color: #2563eb; }
+  /* date quick-action bar inside calendar */
+  .fp-quick-bar { display: flex; gap: .4rem; padding: .4rem .6rem .6rem; border-top: 1px solid #f1f5f9; }
+  .fp-quick-bar button { flex: 1; font-size: .72rem; font-weight: 600; padding: .3rem 0; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: background .15s; }
+  .fp-quick-bar button:hover { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+  .fp-quick-bar button.fp-clear { border-color: #fecaca; color: #dc2626; }
+  .fp-quick-bar button.fp-clear:hover { background: #fef2f2; }
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+  .prog-breadcrumb { font-size: .78rem; color: #64748b; margin-bottom: .35rem; }
+  .prog-breadcrumb a { color: #3b82f6; text-decoration: none; }
+  .prog-breadcrumb a:hover { text-decoration: underline; }
+  .form-grid { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
+  @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; }
+  .form-card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .75rem; }
+  .form-card-header .hdr-icon { width: 40px; height: 40px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .form-card-header h5 { margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a; }
+  .form-card-header p { margin: .1rem 0 0; font-size: .78rem; color: #64748b; }
+  .form-card-body { padding: 1.5rem; }
+  .section-divider { display: flex; align-items: center; gap: .75rem; margin: 1.5rem 0 1rem; }
+  .section-divider span { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #94a3b8; white-space: nowrap; }
+  .section-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+  .input-group .input-group-text { background: #f8fafc; border-color: #e2e8f0; color: #64748b; font-size: .82rem; font-weight: 600; }
+  .form-control, .form-select { border-color: #e2e8f0; font-size: .875rem; border-radius: 8px !important; transition: border-color .2s, box-shadow .2s; }
+  .form-control:focus, .form-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .form-control.is-invalid { border-color: #ef4444 !important; }
+  .form-control.is-invalid:focus { box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
+  .form-label { font-size: .8rem; font-weight: 600; color: #374151; margin-bottom: .35rem; }
+  .char-counter { font-size: .72rem; color: #94a3b8; text-align: right; margin-top: .2rem; }
+  .char-counter.near { color: #f59e0b; }
+  .char-counter.over { color: #ef4444; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; }
+  .toggle-row .toggle-info h6 { margin: 0; font-size: .875rem; font-weight: 600; color: #0f172a; }
+  .toggle-row .toggle-info p { margin: .1rem 0 0; font-size: .75rem; color: #64748b; }
+  .form-switch .form-check-input { width: 2.4em; height: 1.3em; cursor: pointer; }
+  .form-switch .form-check-input:checked { background-color: #22c55e; border-color: #22c55e; }
+  .form-actions { display: flex; gap: .75rem; padding-top: 1.25rem; border-top: 1px solid #f1f5f9; margin-top: 1.5rem; }
+  .btn-save { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 600; font-size: .875rem; padding: .55rem 1.5rem; border-radius: 8px; display: flex; align-items: center; gap: .4rem; transition: background .2s; }
+  .btn-save:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+  .btn-cancel { font-size: .875rem; padding: .55rem 1.25rem; border-radius: 8px; color: #64748b; border-color: #e2e8f0; background: #fff; }
+  .btn-cancel:hover { background: #f1f5f9; }
+  .summary-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); position: sticky; top: 1.5rem; }
+  .summary-card-hdr { padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 700; color: #0f172a; }
+  .summary-card-hdr i { color: #3b82f6; }
+  .summary-body { padding: 1rem 1.25rem; }
+  .summary-row { display: flex; flex-direction: column; gap: .15rem; padding: .6rem 0; border-bottom: 1px solid #f1f5f9; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-lbl { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+  .summary-val { font-size: .875rem; font-weight: 600; color: #0f172a; min-height: 1.2em; word-break: break-word; }
+  .summary-val.placeholder-txt { color: #cbd5e1; font-weight: 400; font-style: italic; }
+  .status-pill { display: inline-flex; align-items: center; gap: .3rem; font-size: .75rem; font-weight: 600; padding: .2rem .65rem; border-radius: 99px; }
+  .status-pill.active { background: #dcfce7; color: #15803d; }
+  .status-pill.inactive { background: #fee2e2; color: #b91c1c; }
+  .required-note { font-size: .72rem; color: #94a3b8; padding-top: .75rem; border-top: 1px solid #f1f5f9; }
+</style>
+
+<div class="prog-breadcrumb mb-1">
+  <a href="{% url 'programs:list' %}"><i class="bi bi-journal-bookmark"></i> Assistance Programs</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>{{ action }}</span>
+</div>
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-journal-plus text-primary me-2"></i>{{ action }} Assistance Program</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">Fill in the details below to {{ action|lower }} an assistance program in the system.</p>
+  </div>
+  <a href="{% url 'programs:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to List
+  </a>
+</div>
+
+<div class="form-grid">
+  <!-- ── Main form card ── -->
+  <div class="form-card">
+    <div class="form-card-header">
+      <div class="hdr-icon"><i class="bi bi-journal-bookmark-fill"></i></div>
+      <div>
+        <h5>Program Information</h5>
+        <p>Define the program name, description and coverage details.</p>
+      </div>
+    </div>
+    <div class="form-card-body">
+      <form method="post" id="programForm" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4 rounded-3" role="alert">
+          <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+          <div>{{ form.non_field_errors }}</div>
+        </div>
+        {% endif %}
+
+        <!-- ── Basic info ── -->
+        <div class="section-divider"><span><i class="bi bi-info-circle me-1"></i>Basic Information</span></div>
+
+        <div class="mb-3">
+          <label class="form-label">Program Name <span class="text-danger">*</span></label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.name.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-1">
+          <label class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label>
+          {{ form.description }}
+          <div class="char-counter" id="descCounter">0 / 500</div>
+          {% if form.description.errors %}
+            <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.description.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- ── Financial ── -->
+        <div class="section-divider"><span><i class="bi bi-cash-coin me-1"></i>Financial Settings</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Program Budget <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text">₱</span>
+              {{ form.budget }}
+            </div>
+            {% if form.budget.errors %}
+              <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.budget.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">
+              Income Threshold
+              <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 title="Maximum monthly household income for a beneficiary to qualify."></i>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text">₱</span>
+              {{ form.income_threshold }}
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Schedule & Rules ── -->
+        <div class="section-divider"><span><i class="bi bi-calendar3 me-1"></i>Schedule &amp; Rules</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">
+              Grant Cooldown
+              <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 title="Months before a beneficiary can receive another grant from this program."></i>
+            </label>
+            <div class="input-group">
+              {{ form.grant_cooldown_months }}
+              <span class="input-group-text">mo.</span>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Start Date <span class="text-danger">*</span></label>
+            <div class="date-input-wrap">
+              {{ form.start_date }}
+              <button type="button" class="date-icon-btn" id="btnPickStart" tabindex="-1" aria-label="Open calendar">
+                <i class="bi bi-calendar3"></i>
+              </button>
+            </div>
+            {% if form.start_date.errors %}
+              <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.start_date.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">End Date <span class="text-muted fw-normal">(optional)</span></label>
+            <div class="date-input-wrap">
+              {{ form.end_date }}
+              <button type="button" class="date-icon-btn" id="btnPickEnd" tabindex="-1" aria-label="Open calendar">
+                <i class="bi bi-calendar3"></i>
+              </button>
+            </div>
+            {% if form.end_date.errors %}
+              <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.end_date.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- ── Status toggle ── -->
+        <div class="section-divider"><span><i class="bi bi-toggle-on me-1"></i>Status</span></div>
+
+        <div class="toggle-row mb-4">
+          <div class="toggle-info">
+            <h6>Program Active</h6>
+            <p>When active, this program is available for grant assignments.</p>
+          </div>
+          <div class="form-check form-switch mb-0">
+            {{ form.is_active }}
+          </div>
+        </div>
+
+        <!-- ── Actions ── -->
+        <div class="form-actions">
+          <button type="submit" class="btn btn-save" id="submitBtn">
+            <i class="bi bi-floppy-fill"></i>
+            <span id="submitTxt">Save Program</span>
+          </button>
+          <a href="{% url 'programs:list' %}" class="btn btn-cancel">
+            <i class="bi bi-x-lg me-1"></i>Cancel
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div><!-- /form-card -->
+
+  <!-- ── Summary sidebar ── -->
+  <aside>
+    <div class="summary-card">
+      <div class="summary-card-hdr">
+        <i class="bi bi-clipboard2-data-fill"></i> Live Preview
+      </div>
+      <div class="summary-body">
+        <div class="summary-row">
+          <span class="summary-lbl">Program Name</span>
+          <span class="summary-val placeholder-txt" id="previewName">Not set</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Budget</span>
+          <span class="summary-val placeholder-txt" id="previewBudget">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Income Threshold</span>
+          <span class="summary-val placeholder-txt" id="previewThreshold">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Grant Cooldown</span>
+          <span class="summary-val placeholder-txt" id="previewCooldown">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Duration</span>
+          <span class="summary-val placeholder-txt" id="previewDuration">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Status</span>
+          <span id="previewStatus">
+            <span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>
+          </span>
+        </div>
+      </div>
+      <p class="required-note px-3 pb-3 mb-0">
+        <i class="bi bi-asterisk text-danger me-1" style="font-size:.6rem"></i>
+        Fields marked with <span class="text-danger">*</span> are required.
+      </p>
+    </div>
+  </aside>
+</div><!-- /form-grid -->
+{% endblock %}
+
+{# ── All JS runs after Bootstrap bundle (correct load order) ── #}
+{% block extra_js %}
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
+<script>
+(function () {
+  /* ── Tooltips ── */
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+    new bootstrap.Tooltip(el, { trigger: 'hover focus' })
+  );
+
+  /* ── Quick-action bar injected into each flatpickr calendar ── */
+  function addQuickBar(fpInstance, opts) {
+    const bar = document.createElement('div');
+    bar.className = 'fp-quick-bar';
+
+    if (opts.showToday) {
+      const todayBtn = document.createElement('button');
+      todayBtn.type = 'button';
+      todayBtn.textContent = 'Today';
+      todayBtn.addEventListener('click', () => {
+        fpInstance.setDate(new Date(), true);
+        fpInstance.close();
+      });
+      bar.appendChild(todayBtn);
+    }
+
+    if (opts.showClear) {
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'fp-clear';
+      clearBtn.textContent = 'Clear';
+      clearBtn.addEventListener('click', () => {
+        fpInstance.clear();
+        fpInstance.close();
+      });
+      bar.appendChild(clearBtn);
+    }
+
+    fpInstance.calendarContainer.appendChild(bar);
+  }
+
+  /* ── Flatpickr — Start Date ── */
+  const fpStart = flatpickr('#id_start_date', {
+    dateFormat: 'Y-m-d',
+    allowInput: true,
+    disableMobile: true,
+    onReady(_, __, fp) { addQuickBar(fp, { showToday: true, showClear: true }); },
+    onChange(dates) {
+      // keep end-date min in sync
+      if (dates.length) fpEnd.set('minDate', dates[0]);
+      updateDuration();
+    }
+  });
+
+  /* ── Flatpickr — End Date ── */
+  const fpEnd = flatpickr('#id_end_date', {
+    dateFormat: 'Y-m-d',
+    allowInput: true,
+    disableMobile: true,
+    onReady(_, __, fp) { addQuickBar(fp, { showToday: true, showClear: true }); },
+    onChange() { updateDuration(); }
+  });
+
+  /* ── Calendar icon triggers ── */
+  document.getElementById('btnPickStart')?.addEventListener('click', () => fpStart.open());
+  document.getElementById('btnPickEnd')?.addEventListener('click', () => fpEnd.open());
+
+  /* ── Helpers ── */
+  const $   = id => document.getElementById(id);
+  const fmt = n  => n ? '₱\u202f' + parseFloat(n).toLocaleString('en-PH', { minimumFractionDigits: 2 }) : null;
+
+  function setVal(id, value, placeholder) {
+    const el = $(id);
+    if (!el) return;
+    if (value) { el.textContent = value; el.classList.remove('placeholder-txt'); }
+    else       { el.textContent = placeholder; el.classList.add('placeholder-txt'); }
+  }
+
+  /* ── Description char counter ── */
+  const descTa  = $('id_description');
+  const counter = $('descCounter');
+  const MAX_DESC = 500;
+  if (descTa && counter) {
+    descTa.setAttribute('maxlength', MAX_DESC);
+    const updateCounter = () => {
+      const len = descTa.value.length;
+      counter.textContent = len + ' / ' + MAX_DESC;
+      counter.className = 'char-counter' +
+        (len >= MAX_DESC ? ' over' : len >= MAX_DESC * .8 ? ' near' : '');
+    };
+    descTa.addEventListener('input', updateCounter);
+    updateCounter();
+  }
+
+  /* ── Live preview bindings ── */
+  function bindLive(id, fn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => fn(el.value));
+    fn(el.value);
+  }
+
+  bindLive('id_name', v => setVal('previewName', v.trim(), 'Not set'));
+  bindLive('id_budget', v => setVal('previewBudget', fmt(v), '—'));
+  bindLive('id_income_threshold', v => setVal('previewThreshold', fmt(v), '—'));
+  bindLive('id_grant_cooldown_months', v => {
+    const n = parseInt(v);
+    setVal('previewCooldown', n ? n + ' month' + (n !== 1 ? 's' : '') : null, '—');
+  });
+
+  function updateDuration() {
+    const s = $('id_start_date')?.value;
+    const e = $('id_end_date')?.value;
+    if (s && e) {
+      const days = Math.round((new Date(e) - new Date(s)) / 86400000);
+      setVal('previewDuration',
+        s + ' → ' + e + (days >= 0 ? ' (' + days + 'd)' : ' ⚠ invalid range'), '—');
+    } else if (s) {
+      setVal('previewDuration', s + ' → Ongoing', '—');
+    } else {
+      setVal('previewDuration', null, '—');
+    }
+  }
+  updateDuration();
+
+  /* also update duration when user types directly into date inputs */
+  ['id_start_date', 'id_end_date'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateDuration);
+  });
+
+  /* ── Active toggle preview ── */
+  const activeChk = $('id_is_active');
+  const updateStatus = () => {
+    const el = $('previewStatus');
+    if (!el) return;
+    el.innerHTML = activeChk?.checked
+      ? '<span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>'
+      : '<span class="status-pill inactive"><i class="bi bi-x-circle-fill"></i> Inactive</span>';
+  };
+  activeChk?.addEventListener('change', updateStatus);
+  updateStatus();
+
+  /* ── Client-side validation ── */
+  const form      = $('programForm');
+  const submitBtn = $('submitBtn');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      let valid = true;
+      ['id_name', 'id_budget', 'id_start_date'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) { el.classList.add('is-invalid'); valid = false; }
+        else if (el) el.classList.remove('is-invalid');
+      });
+      const sd = $('id_start_date')?.value;
+      const ed = $('id_end_date')?.value;
+      if (sd && ed && new Date(ed) < new Date(sd)) {
+        $('id_end_date')?.classList.add('is-invalid');
+        valid = false;
+      }
+      if (!valid) { e.preventDefault(); return; }
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+    });
+    form.querySelectorAll('.form-control').forEach(el =>
+      el.addEventListener('input', () => el.classList.remove('is-invalid'))
+    );
+  }
+})();
+</script>
+{% endblock %}

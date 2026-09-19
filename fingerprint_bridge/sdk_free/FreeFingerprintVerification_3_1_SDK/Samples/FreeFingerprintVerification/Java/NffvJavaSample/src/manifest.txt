@@ -1,0 +1,2 @@
+Main-Class: NffvSample.NffvApplication
+Class-Path: Nffv.jar flatlaf.jar

@@ -1,0 +1,582 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<style>
+  .dash-filter{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:1rem 1.25rem;margin-bottom:1.25rem}
+  .dash-filter .form-label{font-size:.75rem;font-weight:600;color:#475569;margin-bottom:.3rem}
+  .dash-filter .form-select,.dash-filter .form-control{font-size:.875rem;border-color:#e2e8f0;border-radius:8px}
+  .dash-filter .filter-divider{width:1px;background:#e2e8f0;align-self:stretch;margin:0 .25rem}
+  .dash-filter .filter-hint{font-size:.75rem;color:#64748b}
+  .dash-filter .mode-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.85rem}
+  .dash-filter .mode-tab{border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:.78rem;font-weight:600;padding:.35rem .75rem;border-radius:99px;cursor:pointer}
+  .dash-filter .mode-tab.active{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}
+  .dash-filter .filter-pane{display:none}
+  .dash-filter .filter-pane.active{display:block}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem}
+  .kpi-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:#fff;border-radius:4px;padding:1.05rem .6rem .95rem;min-height:86px;transition:filter .15s,transform .15s}
+  .kpi-card:hover,.kpi-card:focus{color:#fff;filter:brightness(1.07);transform:translateY(-1px)}
+  .kpi-card.kpi-light,.kpi-card.kpi-light:hover,.kpi-card.kpi-light:focus{color:#1f4d22}
+  .kpi-val{font-size:1.85rem;font-weight:800;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .kpi-lbl{font-size:.82rem;font-weight:500;margin-top:.28rem;line-height:1.2;opacity:.95}
+  .kpi-orange{background:#ff9800}
+  .kpi-slate{background:#5b8db8}
+  .kpi-green{background:#1b8a2c}
+  .kpi-mint{background:#b4e8a8}
+  .kpi-cyan{background:#29c5e0}
+  .kpi-purple{background:#c084e0}
+  .kpi-pale{background:#c5efc0}
+  .kpi-lime{background:#3caf4a}
+  @media(max-width:991.98px){
+    .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media(max-width:767.98px){
+    .dash-filter .filter-divider{display:none}
+    .kpi-val{font-size:1.55rem}
+    .kpi-lbl{font-size:.75rem}
+  }
+</style>
+
+<div class="page-hdr">
+  <div>
+    <h2><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h2>
+    <small class="text-muted">e-BAHAGI — Humanitarian Assistance Grant Management</small>
+  </div>
+  {% if is_filtered %}
+  <span class="badge rounded-pill" style="background:#eff6ff;color:#1d4ed8;font-size:.8rem;padding:.45rem .8rem">
+    <i class="bi bi-funnel-fill me-1"></i>{{ filter_label }}
+  </span>
+  {% endif %}
+</div>
+
+<!-- Date filter -->
+<div class="dash-filter">
+  <form method="get" id="dashFilterForm">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+      <div class="fw-semibold" style="font-size:.9rem;color:#0f172a">
+        <i class="bi bi-calendar3 text-primary me-1"></i> Filter dashboard data
+      </div>
+      <div class="mode-tabs" role="tablist">
+        <button type="button" class="mode-tab {% if filter_mode != 'custom' %}active{% endif %}" data-mode="preset">Year / Month / Day</button>
+        <button type="button" class="mode-tab {% if filter_mode == 'custom' %}active{% endif %}" data-mode="custom">Custom date range</button>
+      </div>
+    </div>
+
+    <div class="filter-pane {% if filter_mode != 'custom' %}active{% endif %}" id="pane-preset">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+          <label class="form-label">Year</label>
+          <select name="year" id="filterYear" class="form-select">
+            <option value="">All years</option>
+            {% for y in year_choices %}
+            <option value="{{ y }}" {% if filter_year == y %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Month</label>
+          <select name="month" id="filterMonth" class="form-select">
+            <option value="">All months</option>
+            {% for num, name in month_choices %}
+            <option value="{{ num }}" {% if filter_month == num %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Day</label>
+          <select name="day" id="filterDay" class="form-select">
+            <option value="">All days</option>
+            {% for d in day_choices %}
+            <option value="{{ d }}" {% if filter_day == d %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-auto d-flex gap-2">
+          <button type="submit" class="btn btn-primary btn-sm px-3" style="border-radius:8px">
+            <i class="bi bi-funnel-fill me-1"></i>Apply
+          </button>
+          <a href="{% url 'core:dashboard' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px">
+            <i class="bi bi-x-lg me-1"></i>Reset
+          </a>
+        </div>
+      </div>
+      <div class="filter-hint mt-2"><i class="bi bi-info-circle me-1"></i>Pick a year, optionally narrow by month and day.</div>
+    </div>
+
+    <div class="filter-pane {% if filter_mode == 'custom' %}active{% endif %}" id="pane-custom">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3">
+          <label class="form-label">From</label>
+          <input type="date" name="date_from" id="filterDateFrom" class="form-control" value="{{ filter_date_from }}">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">To</label>
+          <input type="date" name="date_to" id="filterDateTo" class="form-control" value="{{ filter_date_to }}">
+        </div>
+        <div class="col-12 col-md-auto d-flex gap-2">
+          <button type="submit" class="btn btn-primary btn-sm px-3" style="border-radius:8px">
+            <i class="bi bi-funnel-fill me-1"></i>Apply
+          </button>
+          <a href="{% url 'core:dashboard' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px">
+            <i class="bi bi-x-lg me-1"></i>Reset
+          </a>
+        </div>
+      </div>
+      <div class="filter-hint mt-2"><i class="bi bi-info-circle me-1"></i>Custom range overrides year / month / day when applied.</div>
+    </div>
+
+    {% if is_filtered %}
+    <div class="filter-hint mt-2" style="color:#1d4ed8">
+      <i class="bi bi-check-circle-fill me-1"></i>Showing data for <strong>{{ filter_label }}</strong>.
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="kpi-grid">
+  <a href="{% url 'citizens:list' %}" class="kpi-card kpi-orange">
+    <div class="kpi-val">{{ total_citizens }}</div>
+    <div class="kpi-lbl">Citizen Registry</div>
+  </a>
+  <a href="{% url 'beneficiaries:list' %}" class="kpi-card kpi-slate">
+    <div class="kpi-val">{{ total_beneficiaries }}</div>
+    <div class="kpi-lbl">Total Beneficiaries</div>
+  </a>
+  <a href="{% url 'beneficiaries:list' %}" class="kpi-card kpi-green">
+    <div class="kpi-val">{{ not_yet_claimed }}</div>
+    <div class="kpi-lbl">Not yet Claimed</div>
+  </a>
+  {% if user.is_superuser or user.profile.role == 'admin' %}
+  <a href="{% url 'programs:list' %}" class="kpi-card kpi-mint kpi-light">
+    <div class="kpi-val">{{ total_programs }}</div>
+    <div class="kpi-lbl">Total Assistance Program</div>
+  </a>
+  {% else %}
+  <div class="kpi-card kpi-mint kpi-light">
+    <div class="kpi-val">{{ total_programs }}</div>
+    <div class="kpi-lbl">Total Assistance Program</div>
+  </div>
+  {% endif %}
+  <a href="{% url 'beneficiaries:list' %}" class="kpi-card kpi-cyan">
+    <div class="kpi-val">{{ male_count }}</div>
+    <div class="kpi-lbl">Male Claimed</div>
+  </a>
+  <a href="{% url 'beneficiaries:list' %}" class="kpi-card kpi-purple">
+    <div class="kpi-val">{{ female_count }}</div>
+    <div class="kpi-lbl">Female Claimed</div>
+  </a>
+  <div class="kpi-card kpi-pale kpi-light">
+    <div class="kpi-val">{{ assistance_pct|floatformat:2 }}</div>
+    <div class="kpi-lbl">Percentage of Assistance</div>
+  </div>
+  <a href="{% url 'citizens:list' %}" class="kpi-card kpi-lime">
+    <div class="kpi-val">{{ vulnerable_count }}</div>
+    <div class="kpi-lbl">Vulnerable Group</div>
+  </a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12">
+    <div class="panel" style="border-top:3px solid #2563eb">
+      <div class="panel-hdr">
+        <span><i class="bi bi-bar-chart-fill text-primary"></i> Beneficiaries vs Claimed vs Unclaimed by Barangay</span>
+        <span class="text-muted" style="font-size:.78rem;font-weight:400">
+          {% if is_filtered %}Period: {{ filter_label }}{% else %}Active beneficiaries by claim status{% endif %}
+        </span>
+      </div>
+      <div class="p-3 p-md-4" style="position:relative;overflow-x:auto">
+        <div style="min-width:720px;height:360px">
+          <canvas id="brgyChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="panel">
+      <div class="panel-hdr">
+        <span><i class="bi bi-clock-history"></i> {% if is_filtered %}Grant Records in Period{% else %}Recent Grant Records{% endif %}</span>
+        <a href="{% url 'records:list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Beneficiary</th>
+              <th>Program</th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recent_records %}
+            <tr>
+              <td><a href="{% url 'beneficiaries:detail' r.beneficiary.pk %}">{{ r.beneficiary }}</a></td>
+              <td>{{ r.program.name }}</td>
+              <td>₱{{ r.amount|floatformat:2 }}</td>
+              <td>{{ r.date_granted }}</td>
+              <td>
+                {% if r.status == 'released' %}<span class="badge bg-success">Released</span>
+                {% elif r.status == 'pending' %}<span class="badge bg-warning text-dark">Pending</span>
+                {% else %}<span class="badge bg-secondary">Cancelled</span>{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No records yet. <a href="{% url 'records:create' %}">Add one</a>.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="panel h-100">
+      <div class="panel-hdr"><span><i class="bi bi-pie-chart"></i> Beneficiaries by Class</span></div>
+      <div class="p-3">
+        {% for cls, count in class_counts.items %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between mb-1">
+            <small class="fw-semibold" style="font-size:.8rem">{{ cls }}</small>
+            <small class="text-muted">{{ count }}</small>
+          </div>
+          <div class="progress" style="height:6px;border-radius:99px">
+            <div class="progress-bar" style="width:{% if total_beneficiaries %}{% widthratio count total_beneficiaries 100 %}{% else %}0{% endif %}%;background:#3b82f6"></div>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted text-center py-3" style="font-size:.85rem">{% if is_filtered %}No beneficiaries in this period.{% else %}No beneficiaries yet.{% endif %}</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <!-- Bar Chart -->
+  <div class="col-lg-8">
+    <div class="panel" style="border-top:3px solid #3b82f6">
+      <div class="panel-hdr">
+        <span><i class="bi bi-bar-chart-line text-primary"></i> {{ chart_title }}</span>
+        <span class="text-muted" style="font-size:.78rem;font-weight:400">{{ chart_subtitle }}</span>
+      </div>
+      <div class="p-4" style="position:relative">
+        <canvas id="barChart" style="width:100%;height:240px;display:block"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Doughnut Chart -->
+  <div class="col-lg-4">
+    <div class="panel h-100" style="border-top:3px solid #8b5cf6">
+      <div class="panel-hdr">
+        <span><i class="bi bi-pie-chart-fill" style="color:#8b5cf6"></i> Beneficiaries by Class</span>
+      </div>
+      <div class="p-3 doughnut-wrap" style="min-height:280px">
+        <!-- Canvas with centered total -->
+        <div style="position:relative;width:150px;height:150px;flex-shrink:0">
+          <canvas id="doughnutChart" width="150" height="150"></canvas>
+          <div id="doughnut-center" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
+            <div style="font-size:1.35rem;font-weight:700;color:#0f172a;line-height:1">{{ total_beneficiaries }}</div>
+            <div style="font-size:.62rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Total</div>
+          </div>
+        </div>
+        <!-- Legend list -->
+        <div id="doughnut-legend" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;width:100%"></div>
+        <div id="doughnut-empty" class="text-muted text-center d-none w-100" style="font-size:.85rem">No beneficiaries yet.</div>
+      </div>
+      <style>
+        .doughnut-wrap{display:flex;align-items:center;gap:1rem}
+        @media(max-width:575.98px){
+          .doughnut-wrap{flex-direction:column;text-align:center;min-height:0!important}
+        }
+      </style>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="panel">
+      <div class="panel-hdr"><span><i class="bi bi-lightning"></i> Quick Actions</span></div>
+      <div class="p-3 d-flex flex-wrap gap-2">
+        <a href="{% url 'beneficiaries:create' %}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Add Beneficiary</a>
+        <a href="{% url 'records:create' %}" class="btn btn-success"><i class="bi bi-plus-circle"></i> New Grant Record</a>
+        <a href="{% url 'beneficiaries:rfid' %}" class="btn btn-info text-white"><i class="bi bi-credit-card-2-front"></i> ID / Fingerprint Tap</a>
+        <a href="{% url 'reports:index' %}" class="btn btn-outline-secondary"><i class="bi bi-bar-chart"></i> View Reports</a>
+        {% if user.is_superuser or user.profile.role == 'admin' %}
+        <a href="{% url 'programs:create' %}" class="btn btn-outline-primary"><i class="bi bi-journal-plus"></i> New Program</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const barLabels = {{ bar_labels_json|safe }};
+  const barData   = {{ bar_data_json|safe }};
+  const pieLabels = {{ pie_labels_json|safe }};
+  const pieData   = {{ pie_data_json|safe }};
+  const brgyLabels = {{ brgy_labels_json|safe }};
+  const brgyBeneficiaries = {{ brgy_beneficiaries_json|safe }};
+  const brgyClaimed = {{ brgy_claimed_json|safe }};
+  const brgyUnclaimed = {{ brgy_unclaimed_json|safe }};
+
+  const PALETTE = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+  const GRID    = '#e2e8f0';
+  const TEXT    = '#64748b';
+  const FONT    = "system-ui,-apple-system,'Segoe UI',sans-serif";
+
+  Chart.defaults.font.family = FONT;
+  Chart.defaults.color       = TEXT;
+
+  /* ── Beneficiaries vs Claimed vs Unclaimed by Barangay ─ */
+  const brgyEl = document.getElementById('brgyChart');
+  if (brgyEl && brgyLabels.length) {
+    new Chart(brgyEl.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: brgyLabels,
+        datasets: [
+          {
+            label: 'Beneficiaries',
+            data: brgyBeneficiaries,
+            backgroundColor: '#4a90d9',
+            borderWidth: 0,
+            maxBarThickness: 16,
+          },
+          {
+            label: 'Claimed',
+            data: brgyClaimed,
+            backgroundColor: '#22c55e',
+            borderWidth: 0,
+            maxBarThickness: 16,
+          },
+          {
+            label: 'Unclaimed',
+            data: brgyUnclaimed,
+            backgroundColor: '#f0a030',
+            borderWidth: 0,
+            maxBarThickness: 16,
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: { boxWidth: 14, boxHeight: 14, font: { size: 12 }, color: '#334155' }
+          },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleColor: '#f1f5f9',
+            bodyColor: '#cbd5e1',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: (item) => ` ${item.dataset.label}: ${Number(item.raw).toLocaleString()}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: '#e2e8f0', drawBorder: true },
+            ticks: {
+              maxRotation: 90,
+              minRotation: 90,
+              autoSkip: false,
+              font: { size: 9 },
+              color: '#475569',
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: '#cbd5e1' },
+            ticks: {
+              font: { size: 11 },
+              precision: 0,
+              callback: (v) => Number(v).toLocaleString(),
+            }
+          }
+        }
+      }
+    });
+  }
+
+  /* ── Bar Chart ─────────────────────────────────── */
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  const gradient = barCtx.createLinearGradient(0, 0, 0, 240);
+  gradient.addColorStop(0,   'rgba(59,130,246,0.85)');
+  gradient.addColorStop(1,   'rgba(59,130,246,0.15)');
+
+  new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: barLabels,
+      datasets: [{
+        label: 'Grants Released',
+        data: barData,
+        backgroundColor: gradient,
+        borderColor: '#2563eb',
+        borderWidth: 0,
+        borderRadius: 6,
+        borderSkipped: false,
+        hoverBackgroundColor: 'rgba(37,99,235,0.9)',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0f172a',
+          titleColor: '#f1f5f9',
+          bodyColor:  '#94a3b8',
+          padding: 10,
+          cornerRadius: 8,
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label:  (item) => ` ${item.raw} grant${item.raw !== 1 ? 's' : ''} released`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { size: 12 } }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: GRID, lineWidth: 1 },
+          border: { display: false, dash: [4, 4] },
+          ticks: {
+            font: { size: 11 },
+            stepSize: 1,
+            precision: 0,
+          }
+        }
+      }
+    }
+  });
+
+  /* ── Doughnut Chart ─────────────────────────────── */
+  if (pieLabels.length > 0) {
+    new Chart(document.getElementById('doughnutChart'), {
+      type: 'doughnut',
+      data: {
+        labels: pieLabels,
+        datasets: [{
+          data: pieData,
+          backgroundColor: PALETTE.slice(0, pieLabels.length),
+          borderWidth: 2,
+          borderColor: '#fff',
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: false,
+        cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleColor: '#f1f5f9',
+            bodyColor:  '#94a3b8',
+            padding: 10,
+            cornerRadius: 8,
+            displayColors: true,
+            boxWidth: 10,
+            boxHeight: 10,
+          }
+        }
+      }
+    });
+
+    /* Custom legend — vertical rows with percentage */
+    const legend = document.getElementById('doughnut-legend');
+    const total  = pieData.reduce((a, b) => a + b, 0) || 1;
+    pieLabels.forEach((lbl, i) => {
+      const pct = Math.round(pieData[i] / total * 100);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:.76rem;overflow:hidden';
+      row.innerHTML =
+        `<span style="width:10px;height:10px;border-radius:3px;background:${PALETTE[i]};flex-shrink:0;display:inline-block"></span>` +
+        `<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#374151" title="${lbl}">${lbl}</span>` +
+        `<span style="flex-shrink:0;color:#94a3b8;font-variant-numeric:tabular-nums">${pieData[i]} <span style="color:#cbd5e1">(${pct}%)</span></span>`;
+      legend.appendChild(row);
+    });
+  } else {
+    document.getElementById('doughnutChart').style.display = 'none';
+    document.getElementById('doughnut-center').style.display = 'none';
+    document.getElementById('doughnut-empty').classList.remove('d-none');
+  }
+})();
+</script>
+<script>
+(function () {
+  var form = document.getElementById('dashFilterForm');
+  if (!form) return;
+
+  var tabs = form.querySelectorAll('.mode-tab');
+  var panePreset = document.getElementById('pane-preset');
+  var paneCustom = document.getElementById('pane-custom');
+  var yearEl = document.getElementById('filterYear');
+  var monthEl = document.getElementById('filterMonth');
+  var dayEl = document.getElementById('filterDay');
+  var fromEl = document.getElementById('filterDateFrom');
+  var toEl = document.getElementById('filterDateTo');
+
+  function setMode(mode) {
+    tabs.forEach(function (t) {
+      t.classList.toggle('active', t.getAttribute('data-mode') === mode);
+    });
+    panePreset.classList.toggle('active', mode === 'preset');
+    paneCustom.classList.toggle('active', mode === 'custom');
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setMode(tab.getAttribute('data-mode'));
+    });
+  });
+
+  form.addEventListener('submit', function () {
+    var usingCustom = paneCustom.classList.contains('active');
+    if (usingCustom) {
+      // Clear preset fields so custom range wins cleanly
+      if (yearEl) yearEl.disabled = true;
+      if (monthEl) monthEl.disabled = true;
+      if (dayEl) dayEl.disabled = true;
+    } else {
+      if (fromEl) fromEl.disabled = true;
+      if (toEl) toEl.disabled = true;
+      // Don't send empty month/day without year
+      if (yearEl && !yearEl.value) {
+        if (monthEl) monthEl.disabled = true;
+        if (dayEl) dayEl.disabled = true;
+      }
+    }
+  });
+
+  // Disable day until month is chosen; disable month usefulness hint via UI
+  function syncDayState() {
+    if (!dayEl || !monthEl) return;
+    dayEl.disabled = !monthEl.value;
+    if (!monthEl.value) dayEl.value = '';
+  }
+  if (monthEl) {
+    monthEl.addEventListener('change', syncDayState);
+    syncDayState();
+  }
+})();
+</script>
+{% endblock %}

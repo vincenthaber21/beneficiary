@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Beneficiaries{% endblock %}
+{% block content %}
+<style>
+  /* ── family grouping styles ── */
+  .fam-group-hdr td {
+    background: #eff6ff;
+    border-top: 2px solid #bfdbfe !important;
+    border-bottom: 1px solid #bfdbfe !important;
+    padding: .55rem 1rem;
+    font-size: .82rem;
+    color: #1e40af;
+  }
+  .fam-group-hdr:first-child td { border-top: none !important; }
+  .fam-member-row td { background: #f8fbff; }
+  .fam-member-row td:first-child { padding-left: 1.75rem; border-left: 3px solid #93c5fd; }
+  .fam-solo-row td:first-child { border-left: 3px solid transparent; }
+  .fam-badge { display:inline-flex; align-items:center; gap:.3rem; font-size:.7rem; font-weight:700;
+    padding:.15rem .55rem; border-radius:99px; background:#dbeafe; color:#1d4ed8; vertical-align:middle; margin-left:.4rem; }
+  /* claim status badges */
+  .recv-badge { display:inline-flex; align-items:center; gap:.25rem; font-size:.68rem; font-weight:700;
+    padding:.12rem .5rem; border-radius:99px; background:#dcfce7; color:#15803d; vertical-align:middle;
+    margin-left:.4rem; border:1px solid #bbf7d0; }
+  .unclaim-badge { display:inline-flex; align-items:center; gap:.25rem; font-size:.68rem; font-weight:700;
+    padding:.12rem .5rem; border-radius:99px; background:#fff7ed; color:#c2410c; vertical-align:middle;
+    margin-left:.4rem; border:1px solid #fed7aa; }
+</style>
+
+<div class="page-hdr">
+  <h2><i class="bi bi-person-check text-primary"></i> Beneficiaries</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'beneficiaries:id_cards_all' %}" class="btn btn-outline-primary"><i class="bi bi-printer-fill"></i> <span class="d-none d-sm-inline">Print All ID Cards</span><span class="d-sm-none">Print IDs</span></a>
+    <a href="{% url 'beneficiaries:create' %}" class="btn btn-primary"><i class="bi bi-person-plus"></i> <span class="d-none d-sm-inline">Add Beneficiary</span><span class="d-sm-none">Add</span></a>
+  </div>
+</div>
+
+<div class="panel mb-3">
+  <div class="p-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search name, RFID, contact…">
+      </div>
+      <div class="col-md-2">
+        <select name="class" class="form-select">
+          <option value="">All Classes</option>
+          {% for c in classes %}
+          <option value="{{ c }}" {% if cls == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="family" class="form-select">
+          <option value="">All Beneficiaries</option>
+          <option value="family" {% if fam == "family" %}selected{% endif %}>In a family</option>
+          <option value="individual" {% if fam == "individual" %}selected{% endif %}>Individuals only</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="claim" class="form-select">
+          <option value="">All claim status</option>
+          <option value="claimed" {% if claim == "claimed" %}selected{% endif %}>Claimed</option>
+          <option value="not_claimed" {% if claim == "not_claimed" %}selected{% endif %}>Does not claim</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        <a href="{% url 'beneficiaries:list' %}" class="btn btn-outline-secondary ms-1">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-hdr">
+    <span>
+      {{ total }} beneficiar{{ total|pluralize:"y,ies" }}
+      {% if family_count %}
+        &nbsp;·&nbsp;<i class="bi bi-people-fill text-primary"></i>
+        {{ family_count }} family group{{ family_count|pluralize }}
+      {% endif %}
+      {% if claimed_count %}
+        &nbsp;·&nbsp;<i class="bi bi-gift-fill text-success"></i>
+        {{ claimed_count }} claimed
+      {% endif %}
+      {% if not_claimed_count %}
+        &nbsp;·&nbsp;<i class="bi bi-hourglass-split text-warning"></i>
+        {{ not_claimed_count }} does not claim
+      {% endif %}
+    </span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Class</th>
+          <th>Monthly Income</th>
+          <th>Eligibility</th>
+          <th>Contact</th>
+          <th>RFID / ID</th>
+          <th>Registered</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in family_groups %}
+          {% if group.is_family %}
+          <tr class="fam-group-hdr">
+            <td colspan="9">
+              <i class="bi bi-people-fill me-1"></i>
+              <strong>{{ group.label }} Family</strong>
+              <span class="fam-badge"><i class="bi bi-person-fill"></i>{{ group.members|length }} members</span>
+            </td>
+          </tr>
+          {% endif %}
+          {% for b in group.members %}
+          <tr class="{% if group.is_family %}fam-member-row{% else %}fam-solo-row{% endif %}">
+            <td>
+              <a href="{% url 'beneficiaries:detail' b.pk %}" class="fw-semibold text-decoration-none">{{ b }}</a>
+              {% if b.has_received %}
+              <span class="recv-badge" title="Has claimed {{ b.received_count }} released grant{{ b.received_count|pluralize }} from a program">
+                <i class="bi bi-gift-fill"></i> Claimed{% if b.received_count > 1 %} ×{{ b.received_count }}{% endif %}
+              </span>
+              {% else %}
+              <span class="unclaim-badge" title="Has not claimed any released grant yet">
+                <i class="bi bi-hourglass-split"></i> Does not claim
+              </span>
+              {% endif %}
+            </td>
+            <td><span class="badge" style="background:#e2e8f0;color:#334155;font-weight:500">{{ b.beneficiary_class }}</span></td>
+            <td>₱{{ b.monthly_income|floatformat:2 }}</td>
+            <td>
+              {% if b.eligibility_result.qualified %}
+                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Qualified</span>
+              {% else %}
+                <span class="badge bg-danger" title="{{ b.eligibility_result.reason }}"><i class="bi bi-x-circle"></i> Not Qualified</span>
+                {% if b.family_blocker %}
+                <span class="badge" style="background:#fef3c7;color:#92400e;font-weight:600" title="A family member ({{ b.family_blocker }}) received a grant within the last 3 months">
+                  <i class="bi bi-people-fill"></i> Family cooldown
+                </span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td>{{ b.contact_number|default:"—" }}</td>
+            <td><code style="font-size:.8rem">{{ b.rfid_id|default:"—" }}</code></td>
+            <td>{{ b.date_registered }}</td>
+            <td>
+              {% if b.is_active %}<span class="badge bg-success">Active</span>
+              {% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'beneficiaries:detail' b.pk %}" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'beneficiaries:id_card' b.pk %}" class="btn btn-sm btn-outline-warning me-1" title="Generate ID card"><i class="bi bi-person-vcard"></i></a>
+              <a href="{% url 'beneficiaries:update' b.pk %}" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'beneficiaries:delete' b.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+            </td>
+          </tr>
+          {% endfor %}
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted py-4">No beneficiaries found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

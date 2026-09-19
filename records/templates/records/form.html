@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ action }} Record{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<style>
+  .flatpickr-calendar { font-family:system-ui,-apple-system,sans-serif; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 8px 24px rgba(0,0,0,.12); }
+  .flatpickr-months { background:#2563eb; border-radius:12px 12px 0 0; padding:.4rem 0; }
+  .flatpickr-months .flatpickr-month,.flatpickr-current-month { color:#fff; fill:#fff; }
+  .flatpickr-current-month { font-size:.95rem; }
+  .flatpickr-current-month .flatpickr-monthDropdown-months { background:#2563eb; color:#fff; border:none; font-weight:700; }
+  .flatpickr-current-month input.cur-year { color:#fff; font-weight:700; }
+  .flatpickr-prev-month,.flatpickr-next-month { color:#fff!important; fill:#fff!important; }
+  .flatpickr-weekday { color:#64748b!important; font-weight:700!important; font-size:.72rem!important; }
+  .flatpickr-day { border-radius:8px!important; font-size:.82rem; color:#1e293b; }
+  .flatpickr-day:hover { background:#eff6ff; border-color:#eff6ff; }
+  .flatpickr-day.selected,.flatpickr-day.selected:hover { background:#2563eb!important; border-color:#2563eb!important; color:#fff!important; font-weight:700; }
+  .flatpickr-day.today { border-color:#3b82f6!important; color:#2563eb!important; font-weight:700; }
+  .flatpickr-day.today:hover { background:#eff6ff!important; }
+  .flatpickr-day.today.selected { color:#fff!important; }
+  .flatpickr-day.disabled { color:#cbd5e1!important; }
+  .flatpickr-innerContainer { padding:.25rem .5rem .5rem; }
+  .date-input-wrap { position:relative; }
+  .date-input-wrap .form-control { padding-right:2.6rem; cursor:pointer; background:#fff; }
+  .date-input-wrap .date-icon-btn { position:absolute; right:0; top:0; height:100%; width:2.5rem; display:flex; align-items:center; justify-content:center; color:#64748b; cursor:pointer; background:transparent; border:none; border-left:1px solid #e2e8f0; border-radius:0 8px 8px 0; transition:background .15s,color .15s; }
+  .date-input-wrap .date-icon-btn:hover { background:#eff6ff; color:#2563eb; }
+  .fp-quick-bar { display:flex; gap:.4rem; padding:.4rem .6rem .6rem; border-top:1px solid #f1f5f9; }
+  .fp-quick-bar button { flex:1; font-size:.72rem; font-weight:600; padding:.3rem 0; border-radius:6px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; transition:background .15s; }
+  .fp-quick-bar button:hover { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
+  .fp-quick-bar button.fp-clear { border-color:#fecaca; color:#dc2626; }
+  .fp-quick-bar button.fp-clear:hover { background:#fef2f2; }
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+  .rec-breadcrumb { font-size:.78rem; color:#64748b; margin-bottom:.35rem; }
+  .rec-breadcrumb a { color:#3b82f6; text-decoration:none; }
+  .rec-breadcrumb a:hover { text-decoration:underline; }
+  .form-grid { display:grid; grid-template-columns:1fr 290px; gap:1.5rem; align-items:start; }
+  @media(max-width:960px){ .form-grid{ grid-template-columns:1fr; } }
+  .form-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+  .form-card-header { padding:1.25rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; }
+  .form-card-header .hdr-icon { width:40px; height:40px; border-radius:10px; background:#f0fdf4; color:#15803d; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+  .form-card-header h5 { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
+  .form-card-header p { margin:.1rem 0 0; font-size:.78rem; color:#64748b; }
+  .form-card-body { padding:1.5rem; }
+  .section-divider { display:flex; align-items:center; gap:.75rem; margin:1.5rem 0 1rem; }
+  .section-divider span { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; white-space:nowrap; }
+  .section-divider::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+  .input-group .input-group-text { background:#f8fafc; border-color:#e2e8f0; color:#64748b; font-size:.82rem; font-weight:600; }
+  .form-control,.form-select { border-color:#e2e8f0; font-size:.875rem; border-radius:8px!important; transition:border-color .2s,box-shadow .2s; }
+  .form-control:focus,.form-select:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+  .form-control.is-invalid { border-color:#ef4444!important; }
+  .form-label { font-size:.8rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
+  .form-actions { display:flex; gap:.75rem; padding-top:1.25rem; border-top:1px solid #f1f5f9; margin-top:1.5rem; }
+  .btn-save { background:#15803d; border-color:#15803d; color:#fff; font-weight:600; font-size:.875rem; padding:.55rem 1.5rem; border-radius:8px; display:flex; align-items:center; gap:.4rem; transition:background .2s; }
+  .btn-save:hover { background:#166534; border-color:#166534; color:#fff; }
+  .btn-cancel { font-size:.875rem; padding:.55rem 1.25rem; border-radius:8px; color:#64748b; border-color:#e2e8f0; background:#fff; }
+  .btn-cancel:hover { background:#f1f5f9; }
+  /* status selector badges */
+  .status-select-wrap { position:relative; }
+  /* sidebar */
+  .summary-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:1.5rem; }
+  .summary-card-hdr { padding:1rem 1.25rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color:#0f172a; }
+  .summary-card-hdr i { color:#15803d; }
+  .summary-body { padding:1rem 1.25rem; }
+  .summary-row { display:flex; flex-direction:column; gap:.15rem; padding:.55rem 0; border-bottom:1px solid #f1f5f9; }
+  .summary-row:last-child { border-bottom:none; }
+  .summary-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+  .summary-val { font-size:.875rem; font-weight:600; color:#0f172a; min-height:1.2em; word-break:break-word; }
+  .summary-val.ph { color:#cbd5e1; font-weight:400; font-style:italic; }
+  .status-pill { display:inline-flex; align-items:center; gap:.3rem; font-size:.75rem; font-weight:600; padding:.25rem .7rem; border-radius:99px; }
+  .status-pill.released  { background:#dcfce7; color:#15803d; }
+  .status-pill.pending   { background:#fef9c3; color:#854d0e; }
+  .status-pill.cancelled { background:#f1f5f9; color:#64748b; }
+  .required-note { font-size:.72rem; color:#94a3b8; padding-top:.75rem; border-top:1px solid #f1f5f9; }
+  /* amount big display in sidebar */
+  .amount-display { font-size:1.4rem; font-weight:800; color:#15803d; margin:.3rem 0 .1rem; }
+  /* program budget hint */
+  .budget-hint { margin-top:.6rem; border:1px solid #bfdbfe; background:#f0f7ff; border-radius:10px; padding:.7rem .85rem; }
+  .budget-hint-head { display:flex; align-items:center; gap:.4rem; font-size:.78rem; color:#1e40af; margin-bottom:.6rem; }
+  .budget-hint-head i { font-size:.95rem; }
+  .budget-hint-figures { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; }
+  .bh-fig { display:flex; flex-direction:column; gap:.1rem; }
+  .bh-lbl { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#64748b; }
+  .bh-val { font-size:.92rem; font-weight:700; color:#0f172a; }
+  .bh-available { color:#15803d; }
+  .bh-available.negative { color:#dc2626; }
+  .bh-use { margin-top:.65rem; width:100%; font-size:.75rem; font-weight:600; padding:.4rem 0; border-radius:7px; border:1px solid #bfdbfe; background:#fff; color:#2563eb; cursor:pointer; transition:background .15s; }
+  .bh-use:hover { background:#eff6ff; }
+  .bh-warn { margin-top:.55rem; font-size:.72rem; font-weight:600; color:#dc2626; }
+  /* quick-amount chips */
+  .quick-amounts { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.55rem; }
+  .qa-btn { font-size:.75rem; font-weight:600; padding:.3rem .7rem; border-radius:99px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; transition:background .15s,border-color .15s,color .15s; }
+  .qa-btn:hover { background:#eff6ff; border-color:#bfdbfe; color:#2563eb; }
+  .qa-btn.active { background:#15803d; border-color:#15803d; color:#fff; }
+</style>
+
+<div class="rec-breadcrumb mb-1">
+  <a href="{% url 'records:list' %}"><i class="bi bi-file-earmark-text"></i> Grant Records</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>{{ action }}</span>
+</div>
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0">
+      {% if action == "Edit" %}
+        <i class="bi bi-pencil-square text-success me-2"></i>Edit Grant Record
+      {% else %}
+        <i class="bi bi-file-earmark-plus text-success me-2"></i>Add Grant Record
+      {% endif %}
+    </h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">
+      {% if action == "Edit" %}Update the details of this grant disbursement.
+      {% else %}Record a new grant disbursement to a beneficiary.{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'records:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Records
+  </a>
+</div>
+
+<div class="form-grid">
+  <!-- ── Main form card ── -->
+  <div class="form-card">
+    <div class="form-card-header">
+      <div class="hdr-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
+      <div>
+        <h5>Grant Record Details</h5>
+        <p>Link a beneficiary to an assistance program and specify the disbursement.</p>
+      </div>
+    </div>
+
+    <div class="form-card-body">
+      <form method="post" id="recForm" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4 rounded-3" role="alert">
+          <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+          <div>{{ form.non_field_errors }}</div>
+        </div>
+        {% endif %}
+
+        <!-- ── Assignment ── -->
+        <div class="section-divider"><span><i class="bi bi-link-45deg me-1"></i>Assignment</span></div>
+
+        <div class="mb-3">
+          <label class="form-label">Beneficiary <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+            {{ form.beneficiary }}
+          </div>
+          {% if form.beneficiary.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.beneficiary.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Assistance Program <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-journal-bookmark-fill"></i></span>
+            {{ form.program }}
+          </div>
+          {% if form.program.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.program.errors.0 }}</div>{% endif %}
+
+          <!-- ── Program budget hint ── -->
+          <div class="budget-hint" id="budgetHint" hidden>
+            <div class="budget-hint-head">
+              <i class="bi bi-wallet2"></i>
+              <span>Available budget for <strong id="bhName">this program</strong></span>
+            </div>
+            <div class="budget-hint-figures">
+              <div class="bh-fig">
+                <span class="bh-lbl">Total budget</span>
+                <span class="bh-val" id="bhBudget">₱ —</span>
+              </div>
+              <div class="bh-fig">
+                <span class="bh-lbl">Released</span>
+                <span class="bh-val text-muted" id="bhReleased">₱ —</span>
+              </div>
+              <div class="bh-fig">
+                <span class="bh-lbl">Available</span>
+                <span class="bh-val bh-available" id="bhAvailable">₱ —</span>
+              </div>
+            </div>
+            <button type="button" class="bh-use" id="bhUseBtn">
+              <i class="bi bi-arrow-down-circle me-1"></i>Use available amount
+            </button>
+            <div class="bh-warn" id="bhWarn" hidden>
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>Amount exceeds the available budget.
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Disbursement ── -->
+        <div class="section-divider"><span><i class="bi bi-cash-coin me-1"></i>Disbursement</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Grant Amount <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text">₱</span>
+              {{ form.amount }}
+            </div>
+            {% if form.amount.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.amount.errors.0 }}</div>{% endif %}
+            <div class="quick-amounts" id="quickAmounts">
+              <button type="button" class="qa-btn" data-amt="100">₱100</button>
+              <button type="button" class="qa-btn" data-amt="1000">₱1,000</button>
+              <button type="button" class="qa-btn" data-amt="2000">₱2,000</button>
+              <button type="button" class="qa-btn" data-amt="3000">₱3,000</button>
+              <button type="button" class="qa-btn" data-amt="4000">₱4,000</button>
+              <button type="button" class="qa-btn" data-amt="5000">₱5,000</button>
+              <button type="button" class="qa-btn" data-amt="10000">₱10,000</button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Date Granted <span class="text-danger">*</span></label>
+            <div class="date-input-wrap">
+              {{ form.date_granted }}
+              <button type="button" class="date-icon-btn" id="btnPickDate" tabindex="-1" aria-label="Open calendar">
+                <i class="bi bi-calendar3"></i>
+              </button>
+            </div>
+            {% if form.date_granted.errors %}<div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.date_granted.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <!-- ── Status & Notes ── -->
+        <div class="section-divider"><span><i class="bi bi-flag me-1"></i>Status &amp; Notes</span></div>
+
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          {{ form.status }}
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Notes <span class="text-muted fw-normal">(optional)</span></label>
+          {{ form.notes }}
+        </div>
+
+        <!-- ── Actions ── -->
+        <div class="form-actions">
+          <button type="submit" class="btn btn-save" id="submitBtn">
+            <i class="bi bi-floppy-fill"></i>
+            <span>Save Record</span>
+          </button>
+          <a href="{% url 'records:list' %}" class="btn btn-cancel">
+            <i class="bi bi-x-lg me-1"></i>Cancel
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div><!-- /form-card -->
+
+  <!-- ── Summary sidebar ── -->
+  <aside>
+    <div class="summary-card">
+      <div class="summary-card-hdr">
+        <i class="bi bi-clipboard2-data-fill"></i> Live Preview
+      </div>
+      <div class="summary-body">
+
+        <div class="summary-row">
+          <span class="summary-lbl">Amount</span>
+          <div class="amount-display ph" id="previewAmount">₱ —</div>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Beneficiary</span>
+          <span class="summary-val ph" id="previewBeneficiary">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Program</span>
+          <span class="summary-val ph" id="previewProgram">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Date Granted</span>
+          <span class="summary-val ph" id="previewDate">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Status</span>
+          <span id="previewStatus">
+            <span class="status-pill pending"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+          </span>
+        </div>
+
+      </div>
+      <p class="required-note px-3 pb-3 mb-0">
+        <i class="bi bi-asterisk text-danger me-1" style="font-size:.6rem"></i>
+        Fields marked with <span class="text-danger">*</span> are required.
+      </p>
+    </div>
+
+    {% if action == "Edit" and record %}
+    <div class="summary-card mt-3">
+      <div class="summary-card-hdr" style="font-size:.78rem">
+        <i class="bi bi-clock-history"></i> Record Info
+      </div>
+      <div class="summary-body">
+        <div class="summary-row">
+          <span class="summary-lbl">Record ID</span>
+          <span class="summary-val">#{{ record.pk }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Created</span>
+          <span class="summary-val" style="font-size:.8rem">{{ record.created_at|date:"M j, Y H:i" }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-lbl">Last Updated</span>
+          <span class="summary-val" style="font-size:.8rem">{{ record.updated_at|date:"M j, Y H:i" }}</span>
+        </div>
+        {% if record.granted_by %}
+        <div class="summary-row">
+          <span class="summary-lbl">Granted By</span>
+          <span class="summary-val" style="font-size:.8rem">{{ record.granted_by.get_full_name|default:record.granted_by.username }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+</div><!-- /form-grid -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
+<script id="programBudgets" type="application/json">{{ program_budgets|default:"{}"|safe }}</script>
+<script>
+(function () {
+  /* ── Program budget data ── */
+  let PROGRAM_BUDGETS = {};
+  try { PROGRAM_BUDGETS = JSON.parse(document.getElementById('programBudgets')?.textContent || '{}'); }
+  catch (e) { PROGRAM_BUDGETS = {}; }
+  const peso = n => '₱ ' + Number(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  /* ── Program budget hint ── */
+  const hint = document.getElementById('budgetHint');
+  const amountInput = document.getElementById('id_amount');
+
+  function currentAvailable() {
+    const sel = document.getElementById('id_program');
+    const info = sel && sel.value ? PROGRAM_BUDGETS[sel.value] : null;
+    return info ? info.available : null;
+  }
+
+  function updateBudgetHint() {
+    const sel = document.getElementById('id_program');
+    const info = sel && sel.value ? PROGRAM_BUDGETS[sel.value] : null;
+    if (!hint) return;
+    if (!info) { hint.hidden = true; return; }
+    hint.hidden = false;
+    document.getElementById('bhName').textContent   = info.name;
+    document.getElementById('bhBudget').textContent = peso(info.budget);
+    document.getElementById('bhReleased').textContent = peso(info.released);
+    const avEl = document.getElementById('bhAvailable');
+    avEl.textContent = peso(info.available);
+    avEl.classList.toggle('negative', info.available < 0);
+    checkAmountVsBudget();
+  }
+
+  function checkAmountVsBudget() {
+    const warn = document.getElementById('bhWarn');
+    if (!warn || !amountInput) return;
+    const avail = currentAvailable();
+    const amt = parseFloat(amountInput.value);
+    const over = avail !== null && !isNaN(amt) && amt > avail;
+    warn.hidden = !over;
+  }
+
+  document.getElementById('bhUseBtn')?.addEventListener('click', () => {
+    const avail = currentAvailable();
+    if (avail === null || !amountInput) return;
+    amountInput.value = (avail > 0 ? avail : 0).toFixed(2);
+    amountInput.dispatchEvent(new Event('input', {bubbles:true}));
+    amountInput.focus();
+  });
+
+  /* ── Quick-amount chips ── */
+  const qaButtons = document.querySelectorAll('#quickAmounts .qa-btn');
+  qaButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!amountInput) return;
+      amountInput.value = parseFloat(btn.dataset.amt).toFixed(2);
+      amountInput.dispatchEvent(new Event('input', {bubbles:true}));
+      amountInput.focus();
+    });
+  });
+  function syncQuickAmounts() {
+    const cur = parseFloat(amountInput?.value);
+    qaButtons.forEach(btn =>
+      btn.classList.toggle('active', parseFloat(btn.dataset.amt) === cur)
+    );
+  }
+  amountInput?.addEventListener('input', syncQuickAmounts);
+
+  /* ── Tooltips ── */
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+    new bootstrap.Tooltip(el, { trigger: 'hover focus' })
+  );
+
+  /* ── Flatpickr quick-bar ── */
+  function addQuickBar(fp) {
+    const bar = document.createElement('div');
+    bar.className = 'fp-quick-bar';
+    const todayBtn = document.createElement('button');
+    todayBtn.type = 'button'; todayBtn.textContent = 'Today';
+    todayBtn.addEventListener('click', () => { fp.setDate(new Date(), true); fp.close(); });
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button'; clearBtn.className = 'fp-clear'; clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('click', () => { fp.clear(); fp.close(); });
+    bar.appendChild(todayBtn); bar.appendChild(clearBtn);
+    fp.calendarContainer.appendChild(bar);
+  }
+
+  /* ── Flatpickr — date granted ── */
+  const fpDate = flatpickr('#id_date_granted', {
+    dateFormat  : 'Y-m-d',
+    allowInput  : true,
+    disableMobile: true,
+    onReady(_, __, fp) { addQuickBar(fp); },
+    onChange() { updateSidebar(); },
+  });
+  document.getElementById('btnPickDate')?.addEventListener('click', () => fpDate.open());
+
+  /* ── Helpers ── */
+  const fmt = n => n ? '₱\u202f' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2}) : null;
+  function sv(id, val, ph) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (val) { el.textContent = val; el.classList.remove('ph'); }
+    else     { el.textContent = ph;  el.classList.add('ph'); }
+  }
+  function optText(selId) {
+    const sel = document.getElementById(selId);
+    if (!sel || !sel.value) return null;
+    return sel.options[sel.selectedIndex]?.text || null;
+  }
+
+  /* ── Live sidebar preview ── */
+  function updateSidebar() {
+    const amount = document.getElementById('id_amount')?.value;
+    const amtEl  = document.getElementById('previewAmount');
+    if (amtEl) {
+      const f = fmt(amount);
+      if (f) { amtEl.textContent = f; amtEl.classList.remove('ph'); }
+      else   { amtEl.textContent = '₱ —'; amtEl.classList.add('ph'); }
+    }
+
+    sv('previewBeneficiary', optText('id_beneficiary'), '—');
+    sv('previewProgram',     optText('id_program'),     '—');
+    sv('previewDate',        document.getElementById('id_date_granted')?.value || null, '—');
+
+    /* Status pill */
+    const statusSel = document.getElementById('id_status');
+    const ps = document.getElementById('previewStatus');
+    if (ps && statusSel) {
+      const val = statusSel.value;
+      const map = {
+        released:  '<span class="status-pill released"><i class="bi bi-check-circle-fill me-1"></i>Released</span>',
+        pending:   '<span class="status-pill pending"><i class="bi bi-hourglass-split me-1"></i>Pending</span>',
+        cancelled: '<span class="status-pill cancelled"><i class="bi bi-x-circle me-1"></i>Cancelled</span>',
+      };
+      ps.innerHTML = map[val] || map.pending;
+    }
+  }
+
+  /* ── Wire events ── */
+  ['id_beneficiary','id_program','id_status'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateSidebar);
+  });
+  document.getElementById('id_program')?.addEventListener('change', updateBudgetHint);
+  document.getElementById('id_amount')?.addEventListener('input', updateSidebar);
+  document.getElementById('id_amount')?.addEventListener('input', checkAmountVsBudget);
+  document.getElementById('id_date_granted')?.addEventListener('input', updateSidebar);
+
+  /* ── Client-side validation ── */
+  const form = document.getElementById('recForm');
+  const submitBtn = document.getElementById('submitBtn');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      let valid = true;
+      ['id_beneficiary','id_program','id_amount','id_date_granted'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) { el.classList.add('is-invalid'); valid = false; }
+        else if (el) el.classList.remove('is-invalid');
+      });
+      if (!valid) { e.preventDefault(); return; }
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+    });
+    form.querySelectorAll('.form-control,.form-select').forEach(el =>
+      el.addEventListener('input', () => el.classList.remove('is-invalid'))
+    );
+  }
+
+  /* ── Init ── */
+  updateSidebar();
+  updateBudgetHint();
+  syncQuickAmounts();
+})();
+</script>
+{% endblock %}

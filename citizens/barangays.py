@@ -1,0 +1,131 @@
+"""Default Bacnotan, La Union barangays (official local naming)."""
+
+DEFAULT_BARANGAYS = [
+    "Agtipal",
+    "Arosip",
+    "Bacqui",
+    "Bacsil",
+    "Bagutot",
+    "Ballogo",
+    "Baroro",
+    "Bitalag",
+    "Bulala",
+    "Burayoc",
+    "Bussaoit",
+    "Cabaroan",
+    "Cabarsican",
+    "Cabugao",
+    "Calautit",
+    "Carcarmay",
+    "Casiaman",
+    "Galongen",
+    "Guinabang",
+    "Legleg",
+    "Lisqueb",
+    "Mabanenbeng I",
+    "Mabanenbeng II",
+    "Maragayap",
+    "Nagatiran",
+    "Nagsaraboan",
+    "Nagsimbaanan",
+    "Nangalisan",
+    "Narra",
+    "Ortega",
+    "Oya-oy",
+    "Paagan",
+    "Pandan",
+    "Pang Pang",
+    "Poblacion",
+    "Quirino",
+    "Raois",
+    "Salincob",
+    "San Martin",
+    "Sapilang",
+    "Say-oan",
+    "Sipulo",
+    "Sta. Cruz",
+    "Sta. Rita",
+    "Tammocalao",
+    "Ubbog",
+    "Zaragosa",
+]
+
+# PSA / PhilAtlas 2020 census population by official local barangay name.
+DEFAULT_POPULATIONS = {
+    "Agtipal": 572,
+    "Arosip": 629,
+    "Bacqui": 536,
+    "Bacsil": 895,
+    "Bagutot": 261,
+    "Ballogo": 918,
+    "Baroro": 2926,
+    "Bitalag": 1606,
+    "Bulala": 1317,
+    "Burayoc": 390,
+    "Bussaoit": 619,
+    "Cabaroan": 2051,
+    "Cabarsican": 1398,
+    "Cabugao": 516,
+    "Calautit": 733,
+    "Carcarmay": 598,
+    "Casiaman": 941,
+    "Galongen": 1157,
+    "Guinabang": 1008,
+    "Legleg": 578,
+    "Lisqueb": 926,
+    "Mabanenbeng I": 332,
+    "Mabanenbeng II": 374,
+    "Maragayap": 501,
+    "Nagatiran": 748,
+    "Nagsaraboan": 1109,
+    "Nagsimbaanan": 719,
+    "Nangalisan": 778,
+    "Narra": 1331,
+    "Ortega": 994,
+    "Oya-oy": 561,
+    "Paagan": 660,
+    "Pandan": 1233,
+    "Pang Pang": 290,
+    "Poblacion": 3620,
+    "Quirino": 1077,
+    "Raois": 1118,
+    "Salincob": 485,
+    "San Martin": 940,
+    "Sapilang": 764,
+    "Say-oan": 434,
+    "Sipulo": 1056,
+    "Sta. Cruz": 1300,
+    "Sta. Rita": 693,
+    "Tammocalao": 1450,
+    "Ubbog": 596,
+    "Zaragosa": 650,
+}
+
+# Map older spellings / labels to the official names above.
+BARANGAY_RENAMES = {
+    "Mabanengbeng 1st": "Mabanenbeng I",
+    "Mabanengbeng 2nd": "Mabanenbeng II",
+    "Mabanengbeng I": "Mabanenbeng I",
+    "Mabanengbeng II": "Mabanenbeng II",
+    "Pang-pang": "Pang Pang",
+    "Pangpang": "Pang Pang",
+    "Sayoan": "Say-oan",
+    "Say oan": "Say-oan",
+    "Santa Cruz": "Sta. Cruz",
+    "Santa Rita": "Sta. Rita",
+    "Sta Cruz": "Sta. Cruz",
+    "Sta Rita": "Sta. Rita",
+}
+
+
+def normalize_barangay_name(name):
+    """Map a free-text barangay value to the official list name when possible."""
+    raw = (name or "").strip()
+    if not raw:
+        return ""
+    if raw in DEFAULT_POPULATIONS or raw in DEFAULT_BARANGAYS:
+        return raw
+    if raw in BARANGAY_RENAMES:
+        return BARANGAY_RENAMES[raw]
+    upper_map = {n.upper(): n for n in DEFAULT_BARANGAYS}
+    return upper_map.get(raw.upper(), raw)

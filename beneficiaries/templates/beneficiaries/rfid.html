@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}ID / Fingerprint Tap{% endblock %}
+{% block content %}
+<div class="page-hdr">
+  <h2><i class="bi bi-credit-card-2-front text-primary"></i> ID / Fingerprint Tap</h2>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="form-panel">
+      <h5 class="fw-bold mb-1">Scan or Enter ID</h5>
+      <p class="text-muted mb-3" style="font-size:.875rem">Place the RFID card on the reader or scan fingerprint, then submit to look up the beneficiary.</p>
+      <form method="post" id="tap-form">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold"><i class="bi bi-credit-card-2-front"></i> RFID / Fingerprint / ID</label>
+          <input type="text" name="rfid_id" id="rfid-input" value="{{ rfid }}" class="form-control form-control-lg" autofocus
+                 placeholder="Tap card or scan fingerprint / enter ID" style="font-family:monospace;letter-spacing:.05em">
+        </div>
+      <button type="submit" class="btn btn-primary w-100 py-2">
+          <i class="bi bi-search"></i> Look Up Beneficiary
+        </button>
+      </form>
+      <button type="button" id="fp-scan-btn" class="btn btn-outline-primary w-100 py-2 mt-2">
+        <i class="bi bi-fingerprint"></i> Scan Fingerprint (Nffv)
+      </button>
+      <button type="button" id="scan-btn" class="btn btn-outline-success w-100 py-2 mt-2">
+        <i class="bi bi-qr-code-scan"></i> Scan ID Card QR with Camera
+      </button>
+
+      <!-- Camera QR scanner (hidden until activated) -->
+      <div id="scanner-box" class="mt-3" style="display:none">
+        <div style="position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3">
+          <video id="scan-video" playsinline style="width:100%;height:100%;object-fit:cover"></video>
+          <div style="position:absolute;inset:12% 12%;border:3px solid #22c55e;border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)"></div>
+        </div>
+        <div class="d-flex align-items-center justify-content-between mt-2">
+          <span id="scan-status" class="text-muted" style="font-size:.8rem"><i class="bi bi-camera-video"></i> Point the camera at the ID card QR…</span>
+          <button type="button" id="scan-stop" class="btn btn-sm btn-outline-secondary">Stop</button>
+        </div>
+        <canvas id="scan-canvas" hidden></canvas>
+      </div>
+
+      <hr class="my-4">
+      <div class="d-flex gap-3 text-center flex-column flex-sm-row">
+        <div class="flex-fill p-3 rounded-3" style="background:#f0fdf4;border:1px dashed #86efac">
+          <i class="bi bi-credit-card-2-front fs-3" style="color:#16a34a"></i>
+          <div style="font-size:.8rem;color:#15803d;margin-top:.4rem;font-weight:600">RFID Reader</div>
+          <div style="font-size:.72rem;color:#6b7280">Auto-fills ID above</div>
+        </div>
+        <div class="flex-fill p-3 rounded-3" style="background:#eff6ff;border:1px dashed #93c5fd">
+          <i class="bi bi-fingerprint fs-3" style="color:#2563eb"></i>
+          <div style="font-size:.8rem;color:#1d4ed8;margin-top:.4rem;font-weight:600">Fingerprint Scanner</div>
+          <div style="font-size:.72rem;color:#6b7280">Matches enrolled fingerprint</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    {% if error %}
+    <div class="alert" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;color:#b91c1c">
+      <i class="bi bi-exclamation-circle-fill"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if beneficiary %}
+    <div class="panel">
+      <div class="panel-hdr">
+        <span><i class="bi bi-person-check"></i> Beneficiary Found</span>
+        <div class="d-flex gap-2">
+          <button type="button" id="gen-id-btn" class="btn btn-sm btn-outline-success"
+                  data-url="{% url 'beneficiaries:generate_id' beneficiary.pk %}"><i class="bi bi-upc-scan"></i> Generate ID</button>
+          <a href="{% url 'beneficiaries:id_card' beneficiary.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-person-vcard"></i> ID Card</a>
+          <a href="{% url 'beneficiaries:detail' beneficiary.pk %}" class="btn btn-sm btn-outline-primary">View Full Profile</a>
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="d-flex align-items-center gap-3 mb-4">
+          <div style="width:60px;height:60px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;font-weight:700">
+            {{ beneficiary.first_name|first|upper }}
+          </div>
+          <div>
+            <h4 class="mb-0 fw-bold">{{ beneficiary.full_name }}</h4>
+            <span class="badge" style="background:#e0e7ff;color:#3730a3">{{ beneficiary.beneficiary_class }}</span>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-sm-6">
+            <div style="font-size:.8rem;color:#64748b;font-weight:600">Monthly Income</div>
+            <div class="fw-semibold">₱{{ beneficiary.monthly_income|floatformat:2 }}</div>
+          </div>
+          <div class="col-sm-6">
+            <div style="font-size:.8rem;color:#64748b;font-weight:600">RFID / ID</div>
+            <div class="fw-semibold"><code>{{ beneficiary.rfid_id }}</code></div>
+          </div>
+        </div>
+
+        <div id="gen-id-box" class="p-3 rounded-3 mb-4" style="display:none;background:#f0fdf4;border:1px dashed #86efac">
+          <div style="font-size:.8rem;color:#15803d;font-weight:600"><i class="bi bi-upc-scan"></i> <span id="gen-id-label">Generated e-Bahagi ID</span></div>
+          <div class="fw-bold" style="font-family:monospace;letter-spacing:.05em;font-size:1.25rem;color:#15803d"><span id="gen-id-value"></span></div>
+        </div>
+
+        <div class="p-3 rounded-3 {% if result.qualified %}bg-success bg-opacity-10 border border-success{% else %}bg-danger bg-opacity-10 border border-danger{% endif %}">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            {% if result.qualified %}
+              <i class="bi bi-check-circle-fill text-success fs-4"></i>
+              <span class="fw-bold text-success fs-5">QUALIFIED</span>
+            {% else %}
+              <i class="bi bi-x-circle-fill text-danger fs-4"></i>
+              <span class="fw-bold text-danger fs-5">NOT QUALIFIED</span>
+            {% endif %}
+          </div>
+          <p class="mb-0 text-muted" style="font-size:.875rem">{{ result.reason }}</p>
+        </div>
+
+        {% if result.qualified %}
+        <div class="mt-3 text-center">
+          <a href="{% url 'records:create' %}?beneficiary={{ beneficiary.pk }}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Create Grant Record
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% elif not error %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-credit-card-2-front" style="font-size:3rem;opacity:.3"></i>
+      <p class="mt-2">Scan or enter a beneficiary ID to get started.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+(function () {
+  const input   = document.getElementById('rfid-input');
+  const form    = document.getElementById('tap-form');
+  const scanBtn = document.getElementById('scan-btn');
+  const box     = document.getElementById('scanner-box');
+  const video   = document.getElementById('scan-video');
+  const canvas  = document.getElementById('scan-canvas');
+  const status  = document.getElementById('scan-status');
+  const stopBtn = document.getElementById('scan-stop');
+  let stream = null, raf = null;
+
+  function stop() {
+    if (raf) cancelAnimationFrame(raf), raf = null;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    box.style.display = 'none';
+    scanBtn.disabled = false;
+    scanBtn.innerHTML = '<i class="bi bi-qr-code-scan"></i> Scan ID Card QR with Camera';
+  }
+
+  function tick() {
+    if (!stream) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+      if (code && code.data) {
+        input.value = code.data.trim();
+        status.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Scanned — looking up…';
+        stop();
+        form.submit();          // auto-submit the looked-up ID
+        return;
+      }
+    }
+    raf = requestAnimationFrame(tick);
+  }
+
+  async function start() {
+    if (!window.jsQR) { alert('Scanner failed to load. Check your internet connection, or type the ID manually.'); return; }
+    try {
+      scanBtn.disabled = true;
+      scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting camera…';
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      await video.play();
+      box.style.display = 'block';
+      scanBtn.innerHTML = '<i class="bi bi-x-circle"></i> Cancel Scan';
+      scanBtn.disabled = false;
+      status.innerHTML = '<i class="bi bi-camera-video"></i> Point the camera at the ID card QR…';
+      raf = requestAnimationFrame(tick);
+    } catch (err) {
+      stop();
+      alert('Could not access the camera: ' + err.message + '\nYou can still type or tap the ID manually.');
+    }
+  }
+
+  scanBtn.addEventListener('click', () => (stream ? stop() : start()));
+  stopBtn.addEventListener('click', stop);
+  window.addEventListener('pagehide', stop);
+
+  // Hikvision DS-K1F820-F via local bridge
+  const fpBtn = document.getElementById('fp-scan-btn');
+  const FP_BRIDGE = 'http://127.0.0.1:8765';
+  if (fpBtn) {
+    fpBtn.addEventListener('click', async () => {
+      const original = fpBtn.innerHTML;
+      fpBtn.disabled = true;
+      fpBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Place finger on DS-K1F820-F…';
+      try {
+        const statusResp = await fetch(FP_BRIDGE + '/status', { cache: 'no-store' });
+        const statusData = await statusResp.json();
+        if (!statusData.ok) {
+          throw new Error(statusData.error || 'Fingerprint bridge not ready');
+        }
+        const resp = await fetch(FP_BRIDGE + '/capture?timeout=25', { cache: 'no-store' });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Capture failed');
+        input.value = data.fp_hash || data.template_data || '';
+        form.submit();
+      } catch (err) {
+        alert(
+          (err && err.message ? err.message : 'Fingerprint scan failed') +
+          '\n\nMake sure fingerprint_bridge/app.py is running on port 8765.'
+        );
+      } finally {
+        fpBtn.disabled = false;
+        fpBtn.innerHTML = original;
+      }
+    });
+  }
+
+  // Generate / display the e-Bahagi ID inline for the found beneficiary.
+  const genBtn = document.getElementById('gen-id-btn');
+  if (genBtn) {
+    const csrf = (form.querySelector('[name=csrfmiddlewaretoken]') || {}).value;
+    genBtn.addEventListener('click', async () => {
+      const original = genBtn.innerHTML;
+      genBtn.disabled = true;
+      genBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating…';
+      try {
+        const resp = await fetch(genBtn.dataset.url, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        document.getElementById('gen-id-value').textContent = data.id_number;
+        document.getElementById('gen-id-label').textContent =
+          data.newly_generated ? 'Generated e-Bahagi ID (new)' : 'e-Bahagi ID';
+        document.getElementById('gen-id-box').style.display = 'block';
+      } catch (err) {
+        alert('Could not generate the ID: ' + err.message);
+      } finally {
+        genBtn.disabled = false;
+        genBtn.innerHTML = original;
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

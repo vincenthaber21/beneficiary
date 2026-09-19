@@ -1,0 +1,32 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="module" style="margin-bottom:1.25rem;">
+  <table style="width:100%;">
+    <caption>
+      <a href="{% url 'admin:core_audittrail_changelist' %}" class="section" title="Security">
+        Security
+      </a>
+    </caption>
+    <tr>
+      <th scope="row">
+        <a href="{% url 'admin:core_audittrail_changelist' %}">Audit Trails</a>
+      </th>
+      <td>
+        Login / logout history, modules opened, and actions performed by users.
+      </td>
+    </tr>
+    <tr>
+      <th scope="row">
+        <a href="{% url 'admin:backup_restore' %}">Backup &amp; Restore</a>
+      </th>
+      <td>
+        Download a full data backup or restore from a previous backup.
+        Superuser access only.
+      </td>
+    </tr>
+  </table>
+</div>
+{{ block.super }}
+{% endblock %}

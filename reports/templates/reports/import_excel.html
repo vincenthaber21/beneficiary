@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Import Beneficiaries from Excel{% endblock %}
+{% block content %}
+<div class="page-hdr">
+  <h2><i class="bi bi-file-earmark-excel text-success"></i> Import from Barangay Excel Files</h2>
+  <a href="{% url 'reports:index' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Reports</a>
+</div>
+
+{% if messages %}
+  {% for m in messages %}
+  <div class="alert alert-{% if m.tags == 'success' %}success{% elif m.tags == 'warning' %}warning{% else %}info{% endif %} alert-dismissible fade show">
+    {{ m }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<!-- Files found -->
+<div class="panel mb-3">
+  <div class="panel-hdr"><span><i class="bi bi-folder2-open"></i> Files Found in "Final data/"</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>File</th><th class="text-end">Household Heads</th></tr></thead>
+      <tbody>
+        {% for f in file_stats %}
+        <tr>
+          <td><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>{{ f.name }}</td>
+          <td class="text-end">{{ f.count }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="table-light fw-semibold">
+          <td>Total</td>
+          <td class="text-end">{{ total_raw }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Decision-tree classification preview -->
+<div class="row g-3 mb-3">
+  <div class="col-md-5">
+    <div class="panel h-100">
+      <div class="panel-hdr"><span><i class="bi bi-diagram-3"></i> Classification (Decision-Tree Model)</span></div>
+      <div class="p-3">
+        <div class="mb-3 d-flex gap-3 flex-wrap">
+          <div>
+            <span class="badge bg-success fs-6 px-3">{{ total_classified }}</span>
+            <span class="text-muted ms-1 small">Classified</span>
+          </div>
+          <div>
+            <span class="badge bg-secondary fs-6 px-3">{{ total_unclassified }}</span>
+            <span class="text-muted ms-1 small">Unclassified (skipped)</span>
+          </div>
+        </div>
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Beneficiary Class</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            {% for row in class_breakdown %}
+            <tr>
+              <td>
+                <span class="badge" style="background:#e0e7ff;color:#3730a3">{{ row.cls }}</span>
+              </td>
+              <td class="text-end fw-semibold">{{ row.count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    <div class="panel h-100">
+      <div class="panel-hdr"><span><i class="bi bi-clipboard2-check"></i> Eligibility Preview</span></div>
+      <div class="p-3">
+        <div class="p-3 rounded-3 bg-success bg-opacity-10 border border-success mb-3">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+            <strong class="text-success fs-6">{{ qualified_count }} / {{ total_classified }} QUALIFIED</strong>
+          </div>
+          <p class="mb-0 text-muted" style="font-size:.875rem">
+            Based on: valid class ✓ · no prior grants ✓ · income ₱0.00 &lt; ₱15,000 threshold ✓<br>
+            <em>Income was not available in source files and defaults to ₱0.00. Update after import.</em>
+          </p>
+        </div>
+
+        <div class="mb-2" style="font-size:.875rem">
+          <i class="bi bi-info-circle text-primary"></i>
+          The decision tree checks three criteria for each beneficiary class:
+          <ol class="mt-2 mb-0 ps-3">
+            <li>Is the person a member of a valid beneficiary class?</li>
+            <li>Did they receive a grant in the last 3 months? (No → continue)</li>
+            <li>Is monthly income &lt; ₱15,000? (Yes → <strong class="text-success">Qualified</strong>)</li>
+          </ol>
+        </div>
+
+        {% if existing_count > 0 %}
+        <div class="alert alert-warning py-2 mb-0" style="font-size:.875rem">
+          <i class="bi bi-exclamation-triangle"></i>
+          There are already <strong>{{ existing_count }}</strong> beneficiaries in the database.
+          Duplicate records (same name + barangay) will be skipped automatically.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import action -->
+<div class="panel">
+  <div class="panel-hdr"><span><i class="bi bi-upload"></i> Run Import</span></div>
+  <div class="p-4">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="import">
+      <p class="mb-3">
+        This will create up to <strong>{{ total_classified }}</strong> new Beneficiary records
+        (duplicates by name + barangay are automatically skipped).
+        Monthly income will be set to <strong>₱0.00</strong> — update each record afterwards.
+      </p>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success px-4">
+          <i class="bi bi-cloud-upload"></i> Import {{ total_classified }} Beneficiaries
+        </button>
+        <a href="{% url 'beneficiaries:list' %}" class="btn btn-outline-secondary">View Beneficiaries</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,967 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ action }} Citizen{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'idcard.css' %}">
+<style>
+  .cr-breadcrumb{font-size:.78rem;color:#64748b;margin-bottom:.35rem}
+  .cr-breadcrumb a{color:#3b82f6;text-decoration:none}
+  .form-grid{display:grid;grid-template-columns:1fr 340px;gap:1.25rem;align-items:start}
+  @media(max-width:1100px){.form-grid{grid-template-columns:1fr 300px}}
+  @media(max-width:960px){.form-grid{grid-template-columns:1fr}}
+  .panel-box{background:#fff;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:1rem;overflow:hidden}
+  .panel-box-title{background:#f1f5f9;border-bottom:1px solid #cbd5e1;padding:.45rem .85rem;font-size:.82rem;font-weight:700;color:#0f172a}
+  .panel-box-body{padding:.85rem}
+  .form-label{font-size:.75rem;font-weight:600;color:#475569;margin-bottom:.25rem}
+  .form-control,.form-select{border-color:#cbd5e1;font-size:.85rem;border-radius:6px!important}
+  .form-control:focus,.form-select:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+  .form-control[readonly]{background:#f8fafc;color:#64748b}
+  .req{color:#ef4444}
+  .citizen-id-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:.45rem .7rem}
+  .check-list{max-height:160px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem .65rem;background:#fafafa}
+  .check-list .form-check{margin-bottom:.35rem}
+  .check-list .form-check-label{font-size:.8rem;color:#334155}
+  .family-table{font-size:.8rem;margin:0}
+  .family-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}
+  .family-actions{display:flex;flex-direction:column;gap:.4rem}
+  .bottom-actions{display:flex;gap:.5rem;flex-wrap:wrap;padding:.85rem 0 0;margin-top:.5rem;border-top:1px solid #e2e8f0}
+  .btn-save{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:600}
+  .btn-save:hover{background:#1d4ed8;color:#fff}
+  .sig-pad-wrap{position:relative;border:2px dashed #cbd5e1;border-radius:8px;background:#fff;overflow:hidden}
+  .sig-pad-wrap:focus-within,.sig-pad-wrap.active{border-color:#3b82f6}
+  .sig-pad{display:block;width:100%;height:120px;touch-action:none;cursor:crosshair}
+  .sig-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.4rem;color:#cbd5e1;font-size:.85rem;font-weight:600;pointer-events:none}
+  .fp-table{font-size:.8rem;margin:0}
+  .fp-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}
+  .fp-scan-cell{display:flex;gap:.35rem;align-items:center}
+  .fp-scan-cell .form-control{flex:1;min-width:0}
+  .fp-status{font-size:.72rem;font-weight:600;margin-top:.25rem}
+  .fp-status.ok{color:#15803d}
+  .fp-status.wait{color:#64748b}
+  .fp-status.listening{color:#1d4ed8}
+  .fp-preview{width:44px;height:52px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+  .fp-preview img{max-width:100%;max-height:100%;object-fit:contain}
+  .fp-preview i{color:#94a3b8;font-size:1.1rem}
+  .fp-preview.has-scan{border-color:#86efac;background:#f0fdf4}
+  .fp-preview.has-scan i{color:#16a34a}
+  .fp-hint{font-size:.75rem;color:#64748b;margin:.35rem 0 0}
+  .fp-station{display:grid;grid-template-columns:180px 1fr;gap:1rem;align-items:stretch;margin-bottom:1rem}
+  @media(max-width:700px){.fp-station{grid-template-columns:1fr}}
+  .fp-pad{border:2px dashed #93c5fd;border-radius:12px;background:linear-gradient(180deg,#eff6ff,#fff);padding:1rem .75rem;text-align:center;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.35rem;transition:border-color .2s,box-shadow .2s,background .2s}
+  .fp-pad.listening{border-color:#2563eb;border-style:solid;box-shadow:0 0 0 4px rgba(37,99,235,.15);background:linear-gradient(180deg,#dbeafe,#eff6ff);animation:fpPulse 1.4s ease-in-out infinite}
+  .fp-pad.captured{border-color:#22c55e;border-style:solid;background:linear-gradient(180deg,#dcfce7,#f0fdf4);animation:none;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
+  .fp-pad-icon{font-size:2.4rem;color:#2563eb;line-height:1}
+  .fp-pad.captured .fp-pad-icon{color:#16a34a}
+  .fp-pad-title{font-size:.82rem;font-weight:700;color:#1e3a8a}
+  .fp-pad.captured .fp-pad-title{color:#166534}
+  .fp-pad-sub{font-size:.72rem;color:#64748b;max-width:140px}
+  @keyframes fpPulse{0%,100%{box-shadow:0 0 0 4px rgba(37,99,235,.12)}50%{box-shadow:0 0 0 8px rgba(37,99,235,.22)}}
+  .fp-template-input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em}
+  .idprev-wrap{position:sticky;top:1.25rem}
+  .idprev-card{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:1rem;margin-bottom:1rem}
+  .idprev-hdr{display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:700;color:#0f172a;margin-bottom:.75rem}
+  .idprev-hdr i{color:#f97316}
+  .idc-print{margin-top:.75rem;padding-top:.75rem;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:.5rem}
+  .idc-size{display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;font-weight:600;color:#334155}
+  .side-panel .panel-box{margin-bottom:1rem}
+  @media print{
+    .sidebar,.mobile-topbar,.sidebar-overlay,.page-hdr,.cr-breadcrumb,.form-main,
+    .idprev-hdr,.idc-print,.idc-note,.alert,.side-lists,.bottom-actions{display:none!important}
+    .main{margin:0!important;padding:0!important}
+    .form-grid{display:block!important}
+    .idprev-wrap{position:static!important}
+    .idprev-card{border:0!important;padding:0!important;background:transparent!important}
+    .ecard,.ecard *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    .ecard{box-shadow:none;border-radius:0;width:var(--print-w,85.6mm);height:auto;break-inside:avoid}
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cr-breadcrumb mb-1">
+  <a href="{% url 'citizens:list' %}"><i class="bi bi-person-vcard"></i> Citizen Registry</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>{{ action }}</span>
+</div>
+
+<div class="page-hdr mb-3">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-person-vcard text-primary me-1"></i> Citizen Registry Information</h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">
+      {% if citizen %}Editing {{ citizen.registry_no }} — {{ citizen.full_name }}{% else %}Register a new citizen in the master registry.{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'citizens:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Registry
+  </a>
+</div>
+
+<form method="post" id="citizenForm" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors or formset.non_form_errors %}
+  <div class="alert alert-danger">
+    {{ form.non_field_errors }}
+    {{ formset.non_form_errors }}
+  </div>
+  {% endif %}
+
+  <div class="form-grid">
+    <div class="form-main">
+      <!-- Personal Information -->
+      <div class="panel-box">
+        <div class="panel-box-title">Personal Information</div>
+        <div class="panel-box-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <label class="form-label">Citizen ID</label>
+              <div class="citizen-id-box">{% if citizen %}{{ citizen.registry_no }}{% else %}(auto on save){% endif %}</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Last Name <span class="req">*</span></label>
+              {{ form.last_name }}
+              {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">First Name <span class="req">*</span></label>
+              {{ form.first_name }}
+              {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Middle Name</label>
+              {{ form.middle_name }}
+            </div>
+            <div class="col-md-1">
+              <label class="form-label">Ext. Name</label>
+              {{ form.suffix }}
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <label class="form-label">Date of Birth</label>
+              {{ form.date_of_birth }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Sex</label>
+              {{ form.sex }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Civil Status</label>
+              {{ form.civil_status }}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Religion</label>
+              {{ form.religion }}
+              <datalist id="religion-suggestions">
+                <option value="Roman Catholic">
+                <option value="Iglesia ni Cristo">
+                <option value="Protestant">
+                <option value="Islam">
+                <option value="Born Again Christian">
+                <option value="Aglipayan">
+                <option value="None">
+              </datalist>
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Highest Educational Attainment</label>
+              {{ form.education }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Contact Number</label>
+              {{ form.contact_number }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">RFID Tag</label>
+              {{ form.rfid_tag }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Address -->
+      <div class="panel-box">
+        <div class="panel-box-title">Current Address</div>
+        <div class="panel-box-body">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Bldg / Hse / Unit No.</label>
+              {{ form.address }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Barangay</label>
+              {{ form.barangay }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">City / Municipality</label>
+              {{ form.municipality }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Province</label>
+              {{ form.province }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Work Information -->
+      <div class="panel-box">
+        <div class="panel-box-title">Work Information</div>
+        <div class="panel-box-body">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label">Monthly Income Range</label>
+              {{ form.income_range }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Occupation 1</label>
+              {{ form.occupation_1 }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Occupation 2</label>
+              {{ form.occupation_2 }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Occupation 3</label>
+              {{ form.occupation_3 }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Family Composition -->
+      <div class="panel-box">
+        <div class="panel-box-title">Family Composition</div>
+        <div class="panel-box-body">
+          {{ formset.management_form }}
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered family-table align-middle" id="family-table">
+              <thead>
+                <tr>
+                  <th style="width:28%">Citizen</th>
+                  <th style="width:28%">Full Name</th>
+                  <th style="width:28%">Relationship to HH</th>
+                  <th style="width:16%">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="family-members-wrapper">
+                {% for member_form in formset %}
+                <tr class="family-member-row">
+                  <td>
+                    {% for hidden in member_form.hidden_fields %}{{ hidden }}{% endfor %}
+                    {{ member_form.member }}
+                    {% if member_form.member.errors %}<div class="text-danger small">{{ member_form.member.errors.0 }}</div>{% endif %}
+                  </td>
+                  <td>{{ member_form.full_name }}</td>
+                  <td>{{ member_form.relationship }}</td>
+                  <td class="text-center">
+                    {% if member_form.instance.pk %}
+                    <div class="form-check d-inline-flex align-items-center gap-1 justify-content-center mb-0">
+                      {{ member_form.DELETE }}
+                      <label class="form-check-label text-danger small" for="{{ member_form.DELETE.id_for_label }}">Remove</label>
+                    </div>
+                    {% else %}
+                    <span class="text-muted small">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" id="addMemberBtn" class="btn btn-outline-primary btn-sm mt-2">
+            <i class="bi bi-person-plus"></i> Add Member
+          </button>
+        </div>
+      </div>
+
+      <!-- Fingerprint Registration -->
+      <div class="panel-box">
+        <div class="panel-box-title">
+          <i class="bi bi-fingerprint me-1"></i> Fingerprint Scanner Registration
+        </div>
+        <div class="panel-box-body">
+          {{ fingerprint_formset.management_form }}
+          {% if fingerprint_formset.non_form_errors %}
+          <div class="alert alert-danger py-2">{{ fingerprint_formset.non_form_errors }}</div>
+          {% endif %}
+
+          <div class="fp-station">
+            <div class="fp-pad" id="fpPad">
+              <div class="fp-pad-icon"><i class="bi bi-fingerprint" id="fpPadIcon"></i></div>
+              <div class="fp-pad-title" id="fpPadTitle">Ready to scan</div>
+              <div class="fp-pad-sub" id="fpPadSub">Click <strong>Scan Finger</strong>, then place the finger on your fingerprint scanner.</div>
+            </div>
+            <div>
+              <p class="fp-hint mb-2 mt-0">
+                Uses the <strong>Free Fingerprint Verification SDK (Nffv)</strong> bridge on port 8765.
+                Start <code>fingerprint_bridge/app.py</code>, choose a finger, click <strong>Scan Finger</strong>,
+                place the finger on a supported USB scanner, then click <strong>Save</strong>.
+              </p>
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                <button type="button" class="btn btn-primary btn-sm" id="fpScanBtn">
+                  <i class="bi bi-fingerprint"></i> Scan Finger
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="fpClearActiveBtn">
+                  <i class="bi bi-eraser"></i> Clear Scan
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="addFpBtn">
+                  <i class="bi bi-plus-lg"></i> Add Another Finger
+                </button>
+              </div>
+              <div class="small text-muted" id="fpActiveLabel">Active row: first finger slot</div>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered fp-table align-middle" id="fp-table">
+              <thead>
+                <tr>
+                  <th style="width:4%"></th>
+                  <th style="width:16%">Finger</th>
+                  <th style="width:40%">Scanner Template / ID</th>
+                  <th style="width:12%">Quality</th>
+                  <th style="width:16%">Device</th>
+                  <th style="width:6%">Primary</th>
+                  <th style="width:6%">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="fp-rows">
+                {% for fp_form in fingerprint_formset %}
+                <tr class="fp-row{% if forloop.first %} fp-row-active{% endif %}">
+                  <td class="text-center">
+                    <input type="radio" name="fp_active_row" class="fp-active-radio form-check-input" {% if forloop.first %}checked{% endif %} title="Scan into this row">
+                  </td>
+                  <td>
+                    {% for hidden in fp_form.hidden_fields %}{{ hidden }}{% endfor %}
+                    {{ fp_form.finger }}
+                    {% if fp_form.finger.errors %}<div class="text-danger small">{{ fp_form.finger.errors.0 }}</div>{% endif %}
+                  </td>
+                  <td>
+                    <div class="fp-scan-cell">
+                      <div class="fp-preview{% if fp_form.instance.template_data or fp_form.instance.image_data %} has-scan{% endif %}" title="Fingerprint scan status">
+                        {% if fp_form.instance.image_data %}
+                        <img src="{{ fp_form.instance.image_data }}" alt="Fingerprint">
+                        {% else %}
+                        <i class="bi bi-fingerprint"></i>
+                        {% endif %}
+                      </div>
+                      <div style="flex:1;min-width:0">
+                        {{ fp_form.template_data }}
+                        <div class="fp-status {% if fp_form.instance.template_data or fp_form.instance.image_data %}ok{% else %}wait{% endif %}">
+                          {% if fp_form.instance.template_data or fp_form.instance.image_data %}
+                          Saved — will keep on Save
+                          {% else %}
+                          Waiting for scanner…
+                          {% endif %}
+                        </div>
+                        {% if fp_form.template_data.errors %}<div class="text-danger small">{{ fp_form.template_data.errors.0 }}</div>{% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ fp_form.quality }}</td>
+                  <td>{{ fp_form.device_name }}</td>
+                  <td class="text-center">{{ fp_form.is_primary }}</td>
+                  <td class="text-center">
+                    {% if fp_form.instance.pk %}
+                    <div class="form-check d-inline-flex align-items-center gap-1 justify-content-center mb-0">
+                      {{ fp_form.DELETE }}
+                      <label class="form-check-label text-danger small" for="{{ fp_form.DELETE.id_for_label }}">Remove</label>
+                    </div>
+                    {% else %}
+                    <span class="text-muted small">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Signature + attachment + extra -->
+      <div class="panel-box">
+        <div class="panel-box-title">Signature &amp; Attachment</div>
+        <div class="panel-box-body">
+          <div class="row g-3">
+            <div class="col-md-7">
+              <label class="form-label">Signature <span class="text-muted fw-normal">(printed on ID)</span></label>
+              <div class="sig-pad-wrap" id="sigWrap">
+                <canvas id="sigPad" class="sig-pad"></canvas>
+                <div class="sig-hint" id="sigHint"><i class="bi bi-pencil"></i> Sign here</div>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="sigClear">
+                <i class="bi bi-eraser"></i> Clear
+              </button>
+              {{ form.signature }}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Attachment</label>
+              {{ form.attachment }}
+              {% if citizen and citizen.attachment %}
+              <div class="small mt-1">
+                Current: <a href="{{ citizen.attachment.url }}" target="_blank">{{ citizen.attachment.name }}</a>
+              </div>
+              {% endif %}
+              <label class="form-label mt-3">Status</label>
+              {{ form.status }}
+              <label class="form-label mt-2">Notes</label>
+              {{ form.notes }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-box-title">Government IDs <span class="text-muted fw-normal" style="font-size:.75rem">(optional)</span></div>
+        <div class="panel-box-body">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label">PhilSys ID</label>
+              {{ form.philsys_id }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Voter's ID</label>
+              {{ form.voter_id }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Other ID Type</label>
+              {{ form.other_id_type }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Other ID No.</label>
+              {{ form.other_id_number }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Place of Birth</label>
+              {{ form.place_of_birth }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              {{ form.email }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">ZIP Code</label>
+              {{ form.zip_code }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-actions">
+        <button type="submit" class="btn btn-save">
+          <i class="bi bi-floppy"></i> Save
+        </button>
+        {% if citizen %}
+        <a href="{% url 'citizens:id_card' citizen.pk %}" class="btn btn-outline-warning">
+          <i class="bi bi-printer"></i> Print ID
+        </a>
+        {% else %}
+        <button type="button" id="print-btn-bottom" class="btn btn-outline-warning" title="Print current preview">
+          <i class="bi bi-printer"></i> Print ID
+        </button>
+        {% endif %}
+        <label class="btn btn-outline-secondary mb-0" for="id_attachment">
+          <i class="bi bi-paperclip"></i> Attachment
+        </label>
+        {% if citizen %}
+        <a href="{% url 'citizens:detail' citizen.pk %}" class="btn btn-outline-secondary">Close</a>
+        {% else %}
+        <a href="{% url 'citizens:list' %}" class="btn btn-outline-secondary">Close</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <aside class="idprev-wrap">
+      <div class="idprev-card">
+        <div class="idprev-hdr"><i class="bi bi-person-vcard-fill"></i> e-Bahagi ID Preview</div>
+        {% include "beneficiaries/_id_card.html" with card=card %}
+        <div class="idc-print">
+          <label class="idc-size">
+            <span><i class="bi bi-aspect-ratio"></i> Print size</span>
+            <select id="print-size" class="form-select form-select-sm">
+              <option value="85.6">Standard ID · CR80 (85.6 × 48 mm)</option>
+              <option value="98.5">Large ID · CR100 (98.5 × 55 mm)</option>
+              <option value="148">Card · A6 width (148 × 83 mm)</option>
+              <option value="270">Full page (landscape)</option>
+            </select>
+          </label>
+          <button type="button" id="print-btn" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-printer"></i> Print ID Card
+          </button>
+          {% if citizen %}
+          <a href="{% url 'citizens:id_card' citizen.pk %}" class="btn btn-outline-primary btn-sm w-100">
+            <i class="bi bi-box-arrow-up-right"></i> Open print page
+          </a>
+          {% endif %}
+        </div>
+        <p class="text-muted mt-2 mb-0 idc-note" style="font-size:.72rem">
+          <i class="bi bi-info-circle"></i>
+          {% if citizen %}ID No. <code>{{ citizen.registry_no }}</code>.{% else %}ID &amp; QR generated after save.{% endif %}
+          Enable <strong>Background graphics</strong> when printing.
+        </p>
+      </div>
+
+      <div class="side-lists">
+        <div class="panel-box">
+          <div class="panel-box-title">Vulnerable Group</div>
+          <div class="panel-box-body">
+            <div class="check-list">
+              {% for checkbox in form.vulnerable_groups %}
+              <div class="form-check">{{ checkbox.tag }} <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="panel-box">
+          <div class="panel-box-title">Health Condition</div>
+          <div class="panel-box-body">
+            <div class="check-list">
+              {% for checkbox in form.health_conditions %}
+              <div class="form-check">{{ checkbox.tag }} <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var RATIO = 1123 / 2000;
+  var card = document.querySelector('.ecard');
+  var sel = document.getElementById('print-size');
+  var btn = document.getElementById('print-btn');
+  var btn2 = document.getElementById('print-btn-bottom');
+  if (!card || !sel) return;
+  var pageStyle = document.createElement('style');
+  document.head.appendChild(pageStyle);
+  function apply() {
+    var w = parseFloat(sel.value);
+    var h = Math.ceil(w * RATIO * 10) / 10;
+    card.style.setProperty('--print-w', w + 'mm');
+    pageStyle.textContent = '@media print{@page{size:' + w + 'mm ' + h + 'mm;margin:0}}';
+  }
+  function doPrint() { apply(); window.print(); }
+  sel.addEventListener('change', apply);
+  if (btn) btn.addEventListener('click', doPrint);
+  if (btn2) btn2.addEventListener('click', doPrint);
+  apply();
+})();
+</script>
+<script>
+(function () {
+  var val = function (id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v || ''; };
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtBdate(ymd) {
+    if (!ymd) return '\u00a0';
+    var p = ymd.split('-');
+    if (p.length !== 3) return ymd;
+    var m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    if (!m || m < 1 || m > 12) return ymd;
+    return months[m - 1] + ' ' + String(d).padStart(2, '0') + ', ' + p[0];
+  }
+  function updateIdPreview() {
+    set('idc-last', [val('id_last_name'), val('id_suffix')].filter(Boolean).join(' '));
+    set('idc-first', val('id_first_name'));
+    set('idc-middle', val('id_middle_name'));
+    set('idc-bdate', fmtBdate(val('id_date_of_birth')));
+    set('idc-addr', [val('id_address'), val('id_barangay'), val('id_municipality')].filter(Boolean).join(', '));
+  }
+  ['id_last_name','id_first_name','id_middle_name','id_suffix','id_date_of_birth','id_address','id_barangay','id_municipality']
+    .forEach(function (id) {
+      var e = document.getElementById(id);
+      if (e) { e.addEventListener('input', updateIdPreview); e.addEventListener('change', updateIdPreview); }
+    });
+  updateIdPreview();
+})();
+</script>
+<script>
+(function () {
+  var wrapper = document.getElementById('family-members-wrapper');
+  var addBtn = document.getElementById('addMemberBtn');
+  var totalFld = document.getElementById('id_family-TOTAL_FORMS');
+  if (!wrapper || !addBtn || !totalFld) return;
+  addBtn.addEventListener('click', function () {
+    var idx = parseInt(totalFld.value, 10);
+    var tmpl = wrapper.querySelector('.family-member-row');
+    if (!tmpl) return;
+    var clone = tmpl.cloneNode(true);
+    clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+      ['name','id','for'].forEach(function (attr) {
+        var v = el.getAttribute(attr);
+        if (v) el.setAttribute(attr, v.replace(/-\d+-/, '-' + idx + '-'));
+      });
+    });
+    clone.querySelectorAll('input:not([type=hidden]),select').forEach(function (el) {
+      if (el.type === 'checkbox') el.checked = false;
+      else el.value = '';
+    });
+    var del = clone.querySelector('.form-check');
+    if (del) del.innerHTML = '<span class="text-muted small">—</span>';
+    wrapper.appendChild(clone);
+    totalFld.value = idx + 1;
+  });
+})();
+</script>
+<script>
+(function () {
+  var FP_BRIDGE = 'http://127.0.0.1:8765';
+  var wrapper = document.getElementById('fp-rows');
+  var addBtn = document.getElementById('addFpBtn');
+  var totalFld = document.getElementById('id_fp-TOTAL_FORMS');
+  var scanBtn = document.getElementById('fpScanBtn');
+  var clearBtn = document.getElementById('fpClearActiveBtn');
+  var pad = document.getElementById('fpPad');
+  var padTitle = document.getElementById('fpPadTitle');
+  var padSub = document.getElementById('fpPadSub');
+  var activeLabel = document.getElementById('fpActiveLabel');
+  if (!wrapper || !addBtn || !totalFld) return;
+
+  var scanning = false;
+
+  function activeRow() {
+    return wrapper.querySelector('.fp-row-active') || wrapper.querySelector('.fp-row');
+  }
+
+  function setActive(row) {
+    if (!row) return;
+    wrapper.querySelectorAll('.fp-row').forEach(function (r) {
+      r.classList.remove('fp-row-active');
+      var radio = r.querySelector('.fp-active-radio');
+      if (radio) radio.checked = false;
+    });
+    row.classList.add('fp-row-active');
+    var radio = row.querySelector('.fp-active-radio');
+    if (radio) radio.checked = true;
+    var fingerSel = row.querySelector('select[name$="-finger"]');
+    var fingerTxt = fingerSel && fingerSel.value
+      ? fingerSel.options[fingerSel.selectedIndex].text
+      : 'select a finger';
+    if (activeLabel) activeLabel.textContent = 'Active row: ' + fingerTxt;
+  }
+
+  function setPad(state, title, sub) {
+    if (!pad) return;
+    pad.classList.remove('listening', 'captured');
+    if (state) pad.classList.add(state);
+    if (padTitle && title) padTitle.textContent = title;
+    if (padSub && sub) padSub.innerHTML = sub;
+  }
+
+  function markCaptured(row, data) {
+    var input = row.querySelector('.fp-template-input');
+    var image = row.querySelector('.fp-image-input');
+    var status = row.querySelector('.fp-status');
+    var preview = row.querySelector('.fp-preview');
+    var device = row.querySelector('.fp-device-input');
+    var quality = row.querySelector('input[name$="-quality"]');
+    var template = data.template_data || data.fp_hash || '';
+    if (input) input.value = template;
+    if (image && data.image_data) image.value = data.image_data;
+    if (device) device.value = data.device_name || 'Hikvision DS-K1F820-F';
+    if (quality && data.quality != null && data.quality !== '') quality.value = data.quality;
+    if (status) {
+      status.textContent = 'Captured from DS-K1F820-F — click Save to store';
+      status.className = 'fp-status ok';
+    }
+    if (preview) {
+      preview.classList.add('has-scan');
+      if (data.image_data) {
+        preview.innerHTML = '<img src="' + data.image_data + '" alt="Fingerprint">';
+      } else {
+        preview.innerHTML = '<i class="bi bi-fingerprint"></i>';
+      }
+    }
+    setPad(
+      'captured',
+      'Fingerprint captured',
+      'DS-K1F820-F scan saved in the form. Click <strong>Save</strong> to store it with this citizen.'
+    );
+  }
+
+  function refreshRow(row) {
+    var input = row.querySelector('.fp-template-input');
+    var image = row.querySelector('.fp-image-input');
+    var status = row.querySelector('.fp-status');
+    var preview = row.querySelector('.fp-preview');
+    var has = !!(input && input.value.trim());
+    if (status) {
+      status.textContent = has ? 'Captured — click Save to store' : 'Waiting for DS-K1F820-F…';
+      status.className = 'fp-status ' + (has ? 'ok' : 'wait');
+    }
+    if (preview) {
+      preview.classList.toggle('has-scan', has);
+      if (image && image.value) {
+        preview.innerHTML = '<img src="' + image.value + '" alt="Fingerprint">';
+      } else if (!preview.querySelector('img')) {
+        preview.innerHTML = '<i class="bi bi-fingerprint"></i>';
+      }
+    }
+  }
+
+  async function checkBridge() {
+    try {
+      var resp = await fetch(FP_BRIDGE + '/status', { method: 'GET', cache: 'no-store' });
+      var data = await resp.json();
+      return data;
+    } catch (err) {
+      return {
+        ok: false,
+        error: 'Fingerprint bridge is not running. Start fingerprint_bridge/app.py (port 8765).'
+      };
+    }
+  }
+
+  async function startListening(row) {
+    row = row || activeRow();
+    if (!row || scanning) return;
+    setActive(row);
+    var fingerSel = row.querySelector('select[name$="-finger"]');
+    if (fingerSel && !fingerSel.value) {
+      fingerSel.focus();
+      setPad('listening', 'Select a finger first', 'Choose which finger you are scanning on the DS-K1F820-F.');
+      return;
+    }
+
+    scanning = true;
+    if (scanBtn) {
+      scanBtn.disabled = true;
+      scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning…';
+    }
+    setPad('listening', 'Waiting for DS-K1F820-F…', 'Place the finger firmly on the fingerprint recorder now.');
+    var status = row.querySelector('.fp-status');
+    if (status) {
+      status.textContent = 'Talking to DS-K1F820-F bridge…';
+      status.className = 'fp-status listening';
+    }
+
+    try {
+      var bridge = await checkBridge();
+      if (!bridge.ok) {
+        setPad('', 'Scanner not ready', bridge.error || 'Bridge offline');
+        if (status) {
+          status.textContent = bridge.error || 'Bridge offline';
+          status.className = 'fp-status wait';
+        }
+        alert(bridge.error || 'Fingerprint bridge offline. See fingerprint_bridge/README.md');
+        return;
+      }
+
+      var resp = await fetch(FP_BRIDGE + '/capture?timeout=25', { method: 'GET', cache: 'no-store' });
+      var data = await resp.json();
+      if (!data.ok) {
+        setPad('', 'Scan failed', data.error || 'Could not capture fingerprint');
+        if (status) {
+          status.textContent = data.error || 'Scan failed';
+          status.className = 'fp-status wait';
+        }
+        alert(data.error || 'Fingerprint capture failed');
+        return;
+      }
+      markCaptured(row, data);
+    } catch (err) {
+      setPad('', 'Bridge error', err.message || 'Could not reach fingerprint bridge');
+      alert('Could not reach fingerprint bridge at ' + FP_BRIDGE + '\n\nStart it with:\ncd fingerprint_bridge\npython app.py');
+    } finally {
+      scanning = false;
+      if (scanBtn) {
+        scanBtn.disabled = false;
+        scanBtn.innerHTML = '<i class="bi bi-fingerprint"></i> Scan Finger';
+      }
+    }
+  }
+
+  function bindRow(row) {
+    var radio = row.querySelector('.fp-active-radio');
+    if (radio) {
+      radio.addEventListener('change', function () {
+        if (radio.checked) setActive(row);
+      });
+    }
+    row.addEventListener('click', function (e) {
+      if (e.target && e.target.closest('button, a, label')) return;
+      setActive(row);
+    });
+    refreshRow(row);
+  }
+
+  wrapper.querySelectorAll('.fp-row').forEach(bindRow);
+  setActive(activeRow());
+
+  if (scanBtn) {
+    scanBtn.addEventListener('click', function () {
+      startListening(activeRow());
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      var row = activeRow();
+      if (!row) return;
+      var input = row.querySelector('.fp-template-input');
+      var image = row.querySelector('.fp-image-input');
+      var quality = row.querySelector('input[name$="-quality"]');
+      if (input) input.value = '';
+      if (image) image.value = '';
+      if (quality) quality.value = '';
+      var preview = row.querySelector('.fp-preview');
+      if (preview) {
+        preview.className = 'fp-preview';
+        preview.innerHTML = '<i class="bi bi-fingerprint"></i>';
+      }
+      refreshRow(row);
+      setPad('', 'Ready to scan', 'Click <strong>Scan Finger</strong>, then place the finger on the DS-K1F820-F.');
+    });
+  }
+
+  addBtn.addEventListener('click', function () {
+    var idx = parseInt(totalFld.value, 10);
+    var tmpl = wrapper.querySelector('.fp-row');
+    if (!tmpl) return;
+    var clone = tmpl.cloneNode(true);
+    clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+      ['name','id','for'].forEach(function (attr) {
+        var v = el.getAttribute(attr);
+        if (!v) return;
+        if (attr === 'name' && v === 'fp_active_row') return;
+        el.setAttribute(attr, v.replace(/-\d+-/, '-' + idx + '-'));
+      });
+    });
+    clone.querySelectorAll('input:not([type=hidden]):not(.fp-active-radio),select').forEach(function (el) {
+      if (el.type === 'checkbox') el.checked = false;
+      else el.value = '';
+    });
+    clone.querySelectorAll('input[type=hidden]').forEach(function (el) {
+      if (el.name && el.name.indexOf('-id') !== -1) el.value = '';
+      if (el.classList.contains('fp-image-input')) el.value = '';
+    });
+    var preview = clone.querySelector('.fp-preview');
+    if (preview) {
+      preview.className = 'fp-preview';
+      preview.innerHTML = '<i class="bi bi-fingerprint"></i>';
+    }
+    var status = clone.querySelector('.fp-status');
+    if (status) {
+      status.textContent = 'Waiting for DS-K1F820-F…';
+      status.className = 'fp-status wait';
+    }
+    var del = clone.querySelector('.form-check');
+    if (del) del.innerHTML = '<span class="text-muted small">—</span>';
+    var radio = clone.querySelector('.fp-active-radio');
+    if (radio) radio.checked = false;
+    wrapper.appendChild(clone);
+    totalFld.value = idx + 1;
+    bindRow(clone);
+    setActive(clone);
+  });
+
+  // Show bridge status on load
+  checkBridge().then(function (st) {
+    if (st.ok) {
+      setPad('', 'DS-K1F820-F ready', 'Click <strong>Scan Finger</strong>, then place the finger on the recorder.');
+    } else {
+      setPad('', 'Bridge offline', st.error || 'Start fingerprint_bridge/app.py on port 8765');
+    }
+  });
+})();
+</script>
+<script>
+(function () {
+  var canvas = document.getElementById('sigPad');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var hidden = document.getElementById('id_signature');
+  var hint = document.getElementById('sigHint');
+  var wrap = document.getElementById('sigWrap');
+  var pvSig = document.getElementById('idc-sig');
+  var drawing = false, dirty = false, last = null;
+  function fitCanvas() {
+    var ratio = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    var keep = dirty ? canvas.toDataURL() : null;
+    canvas.width = w * ratio; canvas.height = h * ratio;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 3.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f172a';
+    if (keep) { var img = new Image(); img.onload = function () { ctx.drawImage(img, 0, 0, w, h); }; img.src = keep; }
+  }
+  function point(e) {
+    var r = canvas.getBoundingClientRect();
+    var p = e.touches && e.touches.length ? e.touches[0] : e;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  }
+  function start(e) { drawing = true; last = point(e); wrap.classList.add('active'); e.preventDefault(); }
+  function move(e) {
+    if (!drawing) return;
+    var p = point(e);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p;
+    if (!dirty) { dirty = true; hint.style.display = 'none'; }
+    e.preventDefault();
+  }
+  function stop() { if (!drawing) return; drawing = false; wrap.classList.remove('active'); commit(); }
+  function trimmedDataURL() {
+    var W = canvas.width, H = canvas.height;
+    var data = ctx.getImageData(0, 0, W, H).data;
+    var minX = W, minY = H, maxX = 0, maxY = 0, found = false;
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        if (data[(y * W + x) * 4 + 3] > 12) {
+          found = true;
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (!found) return '';
+    var pad = Math.round(8 * (window.devicePixelRatio || 1));
+    minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+    maxX = Math.min(W - 1, maxX + pad); maxY = Math.min(H - 1, maxY + pad);
+    var cw = maxX - minX + 1, ch = maxY - minY + 1;
+    var out = document.createElement('canvas');
+    out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    return out.toDataURL('image/png');
+  }
+  function commit() {
+    if (!dirty) return;
+    var url = trimmedDataURL();
+    if (!url) return;
+    if (hidden) hidden.value = url;
+    if (pvSig) { pvSig.src = url; pvSig.style.display = ''; }
+  }
+  canvas.addEventListener('mousedown', start);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', stop);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', stop);
+  document.getElementById('sigClear').addEventListener('click', function () {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    dirty = false;
+    if (hidden) hidden.value = '';
+    if (pvSig) { pvSig.src = ''; pvSig.style.display = 'none'; }
+    hint.style.display = '';
+  });
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+  if (hidden && hidden.value) {
+    var existing = new Image();
+    existing.onload = function () {
+      var cw = canvas.clientWidth, ch = canvas.clientHeight;
+      var scale = Math.min(cw / existing.width, ch / existing.height, 1);
+      var dw = existing.width * scale, dh = existing.height * scale;
+      ctx.drawImage(existing, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      dirty = true; hint.style.display = 'none';
+    };
+    existing.src = hidden.value;
+    if (pvSig) { pvSig.src = hidden.value; pvSig.style.display = ''; }
+  }
+})();
+</script>
+{% endblock %}

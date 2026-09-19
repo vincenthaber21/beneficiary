@@ -1,0 +1,92 @@
+/* ══ e-Bahagi ID card — official Municipality of Bacnotan layout ══
+   Shared by the printable ID card page and the live preview on the
+   beneficiary form. Every size is expressed in cqw (1% of the card width)
+   so the whole card scales as one unit — identical at 900px on screen or
+   85.6 mm on card stock. */
+.ecard{
+  position:relative;width:100%;aspect-ratio:2000/1123;border-radius:14px;overflow:hidden;
+  background:#fff;box-shadow:0 12px 34px rgba(0,0,0,.18);
+  font-family:'Segoe UI',system-ui,sans-serif;color:#231f20;
+  container-type:inline-size;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+
+/* Top decorative band + faded municipal-hall wash on the right */
+.ecard .band-top{
+  position:absolute;top:0;left:0;right:0;height:29%;
+  background:linear-gradient(100deg,#f5821f 0%,#f9a52c 34%,#fbc63e 62%,#fdd968 82%,#fde9b8 100%);
+}
+.ecard .band-top::before{
+  content:"";position:absolute;inset:0;
+  background:repeating-radial-gradient(circle at 74% -18%,transparent 0 2.22cqw,rgba(255,255,255,.28) 2.22cqw 2.44cqw);
+  opacity:.7;
+}
+.ecard .band-top::after{
+  content:"";position:absolute;top:0;right:0;width:34%;height:100%;
+  background:radial-gradient(120% 140% at 80% 20%,rgba(255,255,255,.55),rgba(253,197,63,.15) 55%,transparent 75%);
+}
+
+/* Bottom honeycomb band */
+.ecard .band-bottom{
+  position:absolute;bottom:0;left:0;right:0;height:6.5%;
+  background:linear-gradient(90deg,#ea5a0b,#f5821f 55%,#f9a52c);
+}
+.ecard .band-bottom::after{
+  content:"";position:absolute;inset:0;opacity:.35;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='30' viewBox='0 0 34 30'><path d='M8.5 0 17 5v10l-8.5 5L0 15V5z M25.5 0 34 5v10l-8.5 5L17 15V5z M17 15l8.5 5v10L17 35l-8.5-5V20z' fill='none' stroke='%23ffffff' stroke-width='1.4'/></svg>");
+  background-size:2.9cqw 2.55cqw;
+}
+
+/* Bottom-left decorative blobs */
+.ecard .blob{position:absolute;left:-4%;bottom:5%;width:24%;height:34%;z-index:1;
+  background:radial-gradient(60% 60% at 30% 70%,rgba(251,176,64,.55),transparent 70%),
+            radial-gradient(50% 50% at 10% 90%,rgba(245,130,31,.45),transparent 72%);
+  border-radius:0 60% 0 0;pointer-events:none}
+
+/* Header: seal + government titles */
+.ecard .hdr{position:absolute;top:3.4%;left:2%;right:2%;display:flex;gap:1.6%;z-index:4;align-items:flex-start}
+.ecard .seal{width:7%;aspect-ratio:1;flex-shrink:0;border-radius:50%;
+  background:radial-gradient(circle,#a11212 0 58%,#fbbf24 58% 74%,#8a0f0f 74% 100%);
+  display:flex;align-items:center;justify-content:center;color:#ffe9a8;
+  font-size:.75cqw;font-weight:800;text-align:center;line-height:1.05;letter-spacing:.02em;
+  border:1px solid #7a0d0d;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.ecard .seal-img{width:12%;background:none;border:0;box-shadow:none;object-fit:contain;height:auto;margin-top:-1%}
+.ecard .gov{padding-top:.2%}
+.ecard .gov p{margin:0;font-size:1.53cqw;font-weight:600;color:#231f20;line-height:1.28}
+.ecard .gov h1{margin:.09cqw 0 0;font-size:2.76cqw;font-weight:800;color:#111;line-height:1;letter-spacing:.01em}
+.ecard .gov .rule{height:.22cqw;background:#231f20;margin-top:.62cqw;width:96%}
+
+/* e-Bahagi ID wordmark */
+.ecard .title{position:absolute;top:20%;left:2.2%;z-index:4;line-height:.9;white-space:nowrap}
+.ecard .title .e{color:#3b39c4;font-size:6.4cqw;font-weight:800;font-style:italic;vertical-align:middle}
+.ecard .title .b{color:#f2731c;font-size:7.1cqw;font-weight:700;font-style:italic;vertical-align:middle;
+  font-family:'Segoe Script','Brush Script MT','Bradley Hand',cursive;
+  text-shadow:1px 2px 3px rgba(0,0,0,.18);margin:0 .18cqw}
+.ecard .title .id{color:#ea5a0b;font-size:6.4cqw;font-weight:900;vertical-align:middle;letter-spacing:-.02em;margin-left:.44cqw}
+
+/* ID number + photo box (right) */
+.ecard .idno{position:absolute;right:2.2%;top:22.5%;width:37%;z-index:4}
+.ecard .idno .k{font-weight:800;color:#231f20;font-size:1.78cqw}
+.ecard .idno .v{display:inline-block;font-family:'Segoe UI',monospace;font-weight:800;
+  color:#c2410c;font-size:1.78cqw;letter-spacing:.03em;margin-left:.62cqw}
+.ecard .photo{position:absolute;right:2.2%;top:28%;width:37%;height:63%;z-index:4;
+  background:#fff;border:1px solid #cbd5e1;box-shadow:0 3px 10px rgba(0,0,0,.12);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3%}
+.ecard .photo svg{width:74%;height:auto;max-height:78%}
+.ecard .photo .cap{font-size:1.17cqw;color:#6b7280;margin-top:3%;text-align:center;font-weight:600}
+.ecard .photo .ph-note{font-size:1.3cqw;color:#94a3b8;text-align:center;font-weight:600;line-height:1.3}
+
+/* Data fields (left) — kept compact so the signature gets its own space below */
+.ecard .fields{position:absolute;left:2.2%;top:33%;width:56%;z-index:4}
+.ecard .frow{display:flex;align-items:baseline;gap:2%;margin-bottom:3%}
+.ecard .frow .lbl{width:30%;font-style:italic;color:#231f20;font-size:1.78cqw;flex-shrink:0}
+.ecard .frow .val{flex:1;font-weight:700;font-size:1.78cqw;color:#111;
+  border-bottom:1px solid #cbd5e1;padding-bottom:2px;min-height:1.15em}
+
+/* Signature — dedicated wide block below the fields with a large signing area.
+   The captured signature image sits centered just above the line. */
+.ecard .sign{position:absolute;left:4%;bottom:8%;width:48%;text-align:center;z-index:4}
+.ecard .sign .space{height:8.5cqw;position:relative}
+.ecard .sign .sig-img{position:absolute;left:50%;bottom:.3cqw;transform:translateX(-50%);
+  max-width:96%;max-height:8cqw;object-fit:contain}
+.ecard .sign .line{border-top:1px solid #6b7280;padding-top:.33cqw;font-size:1.6cqw;color:#231f20}

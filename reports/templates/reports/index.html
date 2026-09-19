@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-hdr">
+  <h2><i class="bi bi-bar-chart-line text-primary"></i> Reports</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'reports:import_excel' %}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Import Excel</a>
+    <a href="{% url 'reports:export_beneficiaries' %}" class="btn btn-outline-primary"><i class="bi bi-download"></i> Beneficiaries CSV</a>
+    <div class="dropdown">
+      <button class="btn btn-outline-success dropdown-toggle" type="button" id="recordsDownloadBtn"
+              data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-download"></i> Records CSV
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="recordsDownloadBtn" style="min-width:20rem">
+        <li><h6 class="dropdown-header">Select what to download</h6></li>
+        <li>
+          <a class="dropdown-item" href="{% url 'reports:export_records' %}?report=qualified_by_group">
+            <i class="bi bi-people-fill text-success me-1"></i>
+            Qualified beneficiaries per vulnerable group
+          </a>
+        </li>
+        <li>
+          <a class="dropdown-item" href="{% url 'reports:export_records' %}?report=not_received">
+            <i class="bi bi-hourglass-split text-warning me-1"></i>
+            Have not received assistance
+          </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <a class="dropdown-item" href="{% url 'reports:export_records' %}">
+            <i class="bi bi-journal-text text-secondary me-1"></i>
+            All grant records
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-stat">
+      <div class="stat-icon mb-2" style="background:#eff6ff"><i class="bi bi-people" style="color:#2563eb"></i></div>
+      <div class="stat-val">{{ total_ben }}</div>
+      <div class="stat-lbl">Total Beneficiaries</div>
+      <div class="text-muted" style="font-size:.75rem;margin-top:.2rem">{{ active_ben }} active</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-stat">
+      <div class="stat-icon mb-2" style="background:#f0fdf4"><i class="bi bi-cash-stack" style="color:#16a34a"></i></div>
+      <div class="stat-val" style="font-size:1.4rem">₱{{ total_released|floatformat:2 }}</div>
+      <div class="stat-lbl">Total Released</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-stat">
+      <div class="stat-icon mb-2" style="background:#fff7ed"><i class="bi bi-check2-circle" style="color:#ea580c"></i></div>
+      <div class="stat-val">{{ released_count }}</div>
+      <div class="stat-lbl">Released Grants</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-stat">
+      <div class="stat-icon mb-2" style="background:#fffbeb"><i class="bi bi-hourglass-split" style="color:#d97706"></i></div>
+      <div class="stat-val">{{ pending_count }}</div>
+      <div class="stat-lbl">Pending Grants</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="panel">
+      <div class="panel-hdr"><span><i class="bi bi-pie-chart"></i> Beneficiaries by Class</span></div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>Class</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            {% for row in by_class %}
+            <tr>
+              <td>{{ row.beneficiary_class }}</td>
+              <td class="text-end fw-semibold">{{ row.count }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-3">No data yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="panel">
+      <div class="panel-hdr"><span><i class="bi bi-journal-bookmark"></i> Released Grants by Program</span></div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>Program</th><th class="text-end">Grants</th><th class="text-end">Total Released</th></tr></thead>
+          <tbody>
+            {% for row in by_program %}
+            <tr>
+              <td>{{ row.program__name }}</td>
+              <td class="text-end">{{ row.count }}</td>
+              <td class="text-end fw-semibold">₱{{ row.total|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">No released grants yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel mt-3">
+  <div class="panel-hdr">
+    <span><i class="bi bi-clock-history"></i> Recent Grant Records</span>
+    <a href="{% url 'records:list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Beneficiary</th><th>Program</th><th>Amount</th><th>Date</th><th>Status</th><th>By</th></tr></thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td><a href="{% url 'beneficiaries:detail' r.beneficiary.pk %}">{{ r.beneficiary }}</a></td>
+          <td>{{ r.program.name }}</td>
+          <td>₱{{ r.amount|floatformat:2 }}</td>
+          <td>{{ r.date_granted }}</td>
+          <td>
+            {% if r.status == 'released' %}<span class="badge bg-success">Released</span>
+            {% elif r.status == 'pending' %}<span class="badge bg-warning text-dark">Pending</span>
+            {% else %}<span class="badge bg-secondary">Cancelled</span>{% endif %}
+          </td>
+          <td>{{ r.granted_by.username|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
