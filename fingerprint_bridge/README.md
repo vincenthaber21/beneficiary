@@ -1,68 +1,94 @@
-# Free Fingerprint Verification SDK (Nffv) — setup
+# Fingerprint bridge — Hikvision DS-K1F820-F + optional Nffv
 
-This bridge uses the SDK from:
+## Your device: Hikvision DS-K1F820-F
 
-`FreeFingerprintVerification_3_1_SDK_2026-03-30.zip`
+Neurotechnology **Nffv cannot drive** the DS-K1F820-F. This bridge uses Hikvision’s
+`FPModule_SDK.dll` when present.
 
-(Neurotechnology Free Fingerprint Verification 3.1)
+### 1. Get the SDK DLL
 
-## Already done in this project
+Obtain **Fingerprint Module SDK** from Hikvision / your distributor (or extract
+`FPModule_SDK.dll` from the enrollment tools that ship with the device / iVMS-4200).
 
-SDK binaries were copied to:
+Copy it here:
 
 ```
-fingerprint_bridge/lib/Nffv.dll
-fingerprint_bridge/lib/FScanners/...
+fingerprint_bridge/lib/FPModule_SDK.dll
 ```
 
-## Start the bridge
+### 2. Python architecture must match the DLL
+
+Many Hikvision builds of `FPModule_SDK.dll` are **32-bit**. This PC now has
+32-bit Python 3.11. Prefer:
 
 ```bat
-cd d:\beneficiary-checker\fingerprint_bridge
+py -3.11-32 -m pip install -r requirements.txt
+py -3.11-32 app.py
+```
+
+Or just run `start_bridge.bat` (it picks 32-bit Python automatically).
+
+Do **not** use `py -3-32` — that alias is not registered; use `py -3.11-32`.
+
+Check bits:
+
+```bat
+py -3.11-32 -c "import struct; print(struct.calcsize('P')*8)"
+```
+
+Should print `32`.
+
+### 3. USB must enumerate cleanly
+
+In Device Manager the recorder must **not** show:
+
+`Unknown USB Device (Device Descriptor Request Failed)` (Code 43)
+
+If it does: try another USB port/cable, a direct motherboard port (not a hub),
+unplug/replug, then reboot. Without a healthy USB device the SDK cannot open it.
+
+### 4. Start the bridge
+
+```bat
+cd fingerprint_bridge
 pip install -r requirements.txt
 python app.py
 ```
 
-Or run `start_bridge.bat`.
+Or `start_bridge.bat`.
 
 Check: http://127.0.0.1:8765/status
 
-## Use in the app
+## Optional: Nffv (other scanner brands)
 
-1. Keep the bridge running
-2. Keep Django running (`python manage.py runserver`)
-3. Open http://127.0.0.1:8000/citizens/add/
-4. Choose a finger → **Scan Finger** → place finger on scanner → **Save**
+Nffv supports Futronic, SecuGen, DigitalPersona/Upek, ZKTeco, Suprema, Nitgen, …
 
-On **ID / Fingerprint Tap**, use **Scan with fingerprint scanner**.
+SDK files live under `lib/` (or `sdk_free/.../Bin/Win64_x64`). Required companions
+next to `Nffv.dll`:
 
-## Important: CPU requirement (AVX2)
+- `Neurotec.Biometrics.Nffv.xml`
+- `NffvJavaNative.dll`
+- `NffvServer.exe`
+- `FScanners\`
 
-Nffv 3.1 requires a CPU with **AVX2**. If `/status` says AVX2 is missing:
-
-- On a **VM**: enable AVX2 / nested virtualization CPU features, or
-- Run on a physical PC with AVX2 (most Intel Core / AMD Ryzen from ~2013+)
-
-## Important: scanner compatibility
-
-Nffv supports modules under `lib/FScanners/` such as:
-
-- Futronic, SecuGen, DigitalPersona/Upek, ZKTeco, Suprema, Nitgen, Lumidigm, …
-
-**Hikvision DS-K1F820-F is not in this SDK’s scanner list.**  
-If `/status` shows `"NoScanner"` or an empty scanner list when only the Hikvision device is plugged in, the Free Fingerprint Verification SDK cannot drive that recorder. You would need a scanner brand listed above, or Hikvision’s own `FPModule_SDK.dll`.
-
-## Optional: limit scanner modules
+Force a backend:
 
 ```bat
-set NFFV_SCANNERS=Futronic;SecuGen
-python app.py
+set FP_BACKEND=hikvision
+set FP_BACKEND=nffv
 ```
 
 ## API
 
 | Method | URL | Purpose |
 |--------|-----|---------|
-| GET | `/status` | SDK + available scanners |
-| GET | `/capture` | Enroll one finger, return hash + PNG |
+| GET | `/status` | SDK + scanners |
+| GET | `/capture` | Capture finger → hash + PNG |
 | POST | `/match` | Live scan vs sample hashes |
+
+## Use in the app
+
+1. Keep this bridge running  
+2. Keep Django running (`python manage.py runserver`)  
+3. Citizens → Add → Scan Finger  
+4. ID / Fingerprint Tap → Scan Fingerprint  

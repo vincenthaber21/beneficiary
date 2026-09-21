@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}All Citizen ID Cards{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'idcard.css' %}">{% endblock %}
+{% block content %}
+<style>
+  .idc-wrap{max-width:900px;margin:0 auto}
+  .idc-actions{display:flex;gap:.5rem;justify-content:center;align-items:center;margin:1.25rem 0;flex-wrap:wrap}
+  .idc-size{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:600;color:#334155}
+  .idc-grid{display:flex;flex-direction:column;gap:2rem}
+  .idc-card-wrap{position:relative}
+  .idc-card-name{font-size:.8rem;color:#64748b;font-weight:600;margin-bottom:.4rem;text-align:center}
+
+  @media print{
+    .sidebar,.mobile-topbar,.sidebar-overlay,.idc-actions,.page-hdr,.alert,.idc-note,.idc-card-name{display:none!important}
+    .main{margin:0!important;padding:0!important}
+    .idc-wrap{max-width:none;margin:0}
+    .idc-grid{gap:0}
+    .ecard,.ecard *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    .idc-card-wrap{break-inside:avoid;page-break-inside:avoid;page-break-after:always}
+    .idc-card-wrap:last-child{page-break-after:auto}
+    .ecard{box-shadow:none;border-radius:0;width:var(--print-w,85.6mm);height:auto}
+  }
+</style>
+
+<div class="page-hdr">
+  <h2><i class="bi bi-person-vcard text-primary"></i> All Citizen ID Cards ({{ cards|length }})</h2>
+  <a href="{% url 'citizens:list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Back to Citizen Registry
+  </a>
+</div>
+
+<div class="idc-wrap">
+  <div class="idc-actions">
+    <label class="idc-size">
+      <i class="bi bi-aspect-ratio"></i> Print size
+      <select id="print-size" class="form-select form-select-sm" style="width:auto">
+        <option value="85.6">Standard ID · CR80 (85.6 × 48 mm)</option>
+        <option value="98.5">Large ID · CR100 (98.5 × 55 mm)</option>
+        <option value="148">Card · A6 width (148 × 83 mm)</option>
+        <option value="270">Full page (landscape)</option>
+      </select>
+    </label>
+    <button id="print-btn" class="btn btn-primary"><i class="bi bi-printer"></i> Print All ID Cards</button>
+  </div>
+  <p class="text-center text-muted idc-note" style="font-size:.8rem">
+    <i class="bi bi-info-circle"></i>
+    Pick a size, then print — each citizen's card prints on its own page. Enable
+    <strong>Background graphics</strong> in the print dialog so the colors come out.
+  </p>
+
+  <div class="idc-grid">
+    {% for card in cards %}
+    <div class="idc-card-wrap">
+      <div class="idc-card-name">{{ card.beneficiary.last_name }}, {{ card.beneficiary.first_name }} — {{ card.id_number }}</div>
+      {% include "beneficiaries/_id_card.html" with card=card %}
+    </div>
+    {% empty %}
+    <p class="text-center text-muted py-4">No citizens to print.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var RATIO = 1123 / 2000;
+  var cards = document.querySelectorAll('.ecard');
+  var sel   = document.getElementById('print-size');
+  var pageStyle = document.createElement('style');
+  document.head.appendChild(pageStyle);
+
+  function apply() {
+    var w = parseFloat(sel.value);
+    var h = Math.ceil(w * RATIO * 10) / 10;
+    cards.forEach(function (c) { c.style.setProperty('--print-w', w + 'mm'); });
+    pageStyle.textContent = '@media print{@page{size:' + w + 'mm ' + h + 'mm;margin:0}}';
+  }
+
+  sel.addEventListener('change', apply);
+  document.getElementById('print-btn').addEventListener('click', function () {
+    apply();
+    window.print();
+  });
+  apply();
+})();
+</script>
+{% endblock %}

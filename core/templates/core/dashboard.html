@@ -9,23 +9,23 @@
   .dash-filter .filter-hint{font-size:.75rem;color:#64748b}
   .dash-filter .mode-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.85rem}
   .dash-filter .mode-tab{border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:.78rem;font-weight:600;padding:.35rem .75rem;border-radius:99px;cursor:pointer}
-  .dash-filter .mode-tab.active{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}
+  .dash-filter .mode-tab.active{background:#FEECEF;border-color:#F5A8AE;color:#E01224}
   .dash-filter .filter-pane{display:none}
   .dash-filter .filter-pane.active{display:block}
   .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem}
   .kpi-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:#fff;border-radius:4px;padding:1.05rem .6rem .95rem;min-height:86px;transition:filter .15s,transform .15s}
   .kpi-card:hover,.kpi-card:focus{color:#fff;filter:brightness(1.07);transform:translateY(-1px)}
-  .kpi-card.kpi-light,.kpi-card.kpi-light:hover,.kpi-card.kpi-light:focus{color:#1f4d22}
+  .kpi-card.kpi-light,.kpi-card.kpi-light:hover,.kpi-card.kpi-light:focus{color:#3D3208}
   .kpi-val{font-size:1.85rem;font-weight:800;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
   .kpi-lbl{font-size:.82rem;font-weight:500;margin-top:.28rem;line-height:1.2;opacity:.95}
-  .kpi-orange{background:#ff9800}
-  .kpi-slate{background:#5b8db8}
-  .kpi-green{background:#1b8a2c}
-  .kpi-mint{background:#b4e8a8}
-  .kpi-cyan{background:#29c5e0}
-  .kpi-purple{background:#c084e0}
-  .kpi-pale{background:#c5efc0}
-  .kpi-lime{background:#3caf4a}
+  .kpi-orange{background:#E78C2D}
+  .kpi-slate{background:#080B3A}
+  .kpi-green{background:#6B9A00}
+  .kpi-mint{background:#D4E800}
+  .kpi-cyan{background:#C45A1A}
+  .kpi-purple{background:#B80E1C}
+  .kpi-pale{background:#F3E08A}
+  .kpi-lime{background:#8BA800}
   @media(max-width:991.98px){
     .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
@@ -39,10 +39,10 @@
 <div class="page-hdr">
   <div>
     <h2><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h2>
-    <small class="text-muted">e-BAHAGI — Humanitarian Assistance Grant Management</small>
+    <small class="text-muted">e-BAHAGI — {{ org_name }}</small>
   </div>
   {% if is_filtered %}
-  <span class="badge rounded-pill" style="background:#eff6ff;color:#1d4ed8;font-size:.8rem;padding:.45rem .8rem">
+  <span class="badge rounded-pill" style="background:#FEECEF;color:#E01224;font-size:.8rem;padding:.45rem .8rem">
     <i class="bi bi-funnel-fill me-1"></i>{{ filter_label }}
   </span>
   {% endif %}
@@ -125,7 +125,7 @@
     </div>
 
     {% if is_filtered %}
-    <div class="filter-hint mt-2" style="color:#1d4ed8">
+    <div class="filter-hint mt-2" style="color:#E01224">
       <i class="bi bi-check-circle-fill me-1"></i>Showing data for <strong>{{ filter_label }}</strong>.
     </div>
     {% endif %}
@@ -176,7 +176,7 @@
 
 <div class="row g-3 mb-3">
   <div class="col-12">
-    <div class="panel" style="border-top:3px solid #2563eb">
+    <div class="panel" style="border-top:3px solid #E01224">
       <div class="panel-hdr">
         <span><i class="bi bi-bar-chart-fill text-primary"></i> Beneficiaries vs Claimed vs Unclaimed by Barangay</span>
         <span class="text-muted" style="font-size:.78rem;font-weight:400">
@@ -192,71 +192,10 @@
   </div>
 </div>
 
-<div class="row g-3">
-  <div class="col-lg-8">
-    <div class="panel">
-      <div class="panel-hdr">
-        <span><i class="bi bi-clock-history"></i> {% if is_filtered %}Grant Records in Period{% else %}Recent Grant Records{% endif %}</span>
-        <a href="{% url 'records:list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr>
-              <th>Beneficiary</th>
-              <th>Program</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in recent_records %}
-            <tr>
-              <td><a href="{% url 'beneficiaries:detail' r.beneficiary.pk %}">{{ r.beneficiary }}</a></td>
-              <td>{{ r.program.name }}</td>
-              <td>₱{{ r.amount|floatformat:2 }}</td>
-              <td>{{ r.date_granted }}</td>
-              <td>
-                {% if r.status == 'released' %}<span class="badge bg-success">Released</span>
-                {% elif r.status == 'pending' %}<span class="badge bg-warning text-dark">Pending</span>
-                {% else %}<span class="badge bg-secondary">Cancelled</span>{% endif %}
-              </td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" class="text-center text-muted py-4">No records yet. <a href="{% url 'records:create' %}">Add one</a>.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="panel h-100">
-      <div class="panel-hdr"><span><i class="bi bi-pie-chart"></i> Beneficiaries by Class</span></div>
-      <div class="p-3">
-        {% for cls, count in class_counts.items %}
-        <div class="mb-2">
-          <div class="d-flex justify-content-between mb-1">
-            <small class="fw-semibold" style="font-size:.8rem">{{ cls }}</small>
-            <small class="text-muted">{{ count }}</small>
-          </div>
-          <div class="progress" style="height:6px;border-radius:99px">
-            <div class="progress-bar" style="width:{% if total_beneficiaries %}{% widthratio count total_beneficiaries 100 %}{% else %}0{% endif %}%;background:#3b82f6"></div>
-          </div>
-        </div>
-        {% empty %}
-        <p class="text-muted text-center py-3" style="font-size:.85rem">{% if is_filtered %}No beneficiaries in this period.{% else %}No beneficiaries yet.{% endif %}</p>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="row g-3 mt-1">
   <!-- Bar Chart -->
   <div class="col-lg-8">
-    <div class="panel" style="border-top:3px solid #3b82f6">
+    <div class="panel" style="border-top:3px solid #E01224">
       <div class="panel-hdr">
         <span><i class="bi bi-bar-chart-line text-primary"></i> {{ chart_title }}</span>
         <span class="text-muted" style="font-size:.78rem;font-weight:400">{{ chart_subtitle }}</span>
@@ -268,9 +207,9 @@
   </div>
   <!-- Doughnut Chart -->
   <div class="col-lg-4">
-    <div class="panel h-100" style="border-top:3px solid #8b5cf6">
+    <div class="panel h-100" style="border-top:3px solid #E78C2D">
       <div class="panel-hdr">
-        <span><i class="bi bi-pie-chart-fill" style="color:#8b5cf6"></i> Beneficiaries by Class</span>
+        <span><i class="bi bi-pie-chart-fill" style="color:#E78C2D"></i> Beneficiaries by Class</span>
       </div>
       <div class="p-3 doughnut-wrap" style="min-height:280px">
         <!-- Canvas with centered total -->
@@ -324,7 +263,7 @@
   const brgyClaimed = {{ brgy_claimed_json|safe }};
   const brgyUnclaimed = {{ brgy_unclaimed_json|safe }};
 
-  const PALETTE = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+  const PALETTE = ['#E01224','#E78C2D','#080B3A','#D4E800','#B80E1C','#6B9A00','#C45A1A','#8BA800','#FC1527','#683C15'];
   const GRID    = '#e2e8f0';
   const TEXT    = '#64748b';
   const FONT    = "system-ui,-apple-system,'Segoe UI',sans-serif";
@@ -343,21 +282,21 @@
           {
             label: 'Beneficiaries',
             data: brgyBeneficiaries,
-            backgroundColor: '#4a90d9',
+            backgroundColor: '#E01224',
             borderWidth: 0,
             maxBarThickness: 16,
           },
           {
             label: 'Claimed',
             data: brgyClaimed,
-            backgroundColor: '#22c55e',
+            backgroundColor: '#6B9A00',
             borderWidth: 0,
             maxBarThickness: 16,
           },
           {
             label: 'Unclaimed',
             data: brgyUnclaimed,
-            backgroundColor: '#f0a030',
+            backgroundColor: '#E78C2D',
             borderWidth: 0,
             maxBarThickness: 16,
           },
@@ -374,7 +313,7 @@
             labels: { boxWidth: 14, boxHeight: 14, font: { size: 12 }, color: '#334155' }
           },
           tooltip: {
-            backgroundColor: '#0f172a',
+            backgroundColor: '#080B3A',
             titleColor: '#f1f5f9',
             bodyColor: '#cbd5e1',
             padding: 10,
@@ -412,8 +351,8 @@
   /* ── Bar Chart ─────────────────────────────────── */
   const barCtx = document.getElementById('barChart').getContext('2d');
   const gradient = barCtx.createLinearGradient(0, 0, 0, 240);
-  gradient.addColorStop(0,   'rgba(59,130,246,0.85)');
-  gradient.addColorStop(1,   'rgba(59,130,246,0.15)');
+  gradient.addColorStop(0,   'rgba(224,18,36,0.85)');
+  gradient.addColorStop(1,   'rgba(224,18,36,0.15)');
 
   new Chart(barCtx, {
     type: 'bar',
@@ -423,11 +362,11 @@
         label: 'Grants Released',
         data: barData,
         backgroundColor: gradient,
-        borderColor: '#2563eb',
+        borderColor: '#E01224',
         borderWidth: 0,
         borderRadius: 6,
         borderSkipped: false,
-        hoverBackgroundColor: 'rgba(37,99,235,0.9)',
+        hoverBackgroundColor: 'rgba(184,14,28,0.9)',
       }]
     },
     options: {
@@ -436,7 +375,7 @@
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#0f172a',
+          backgroundColor: '#080B3A',
           titleColor: '#f1f5f9',
           bodyColor:  '#94a3b8',
           padding: 10,
@@ -488,7 +427,7 @@
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#0f172a',
+            backgroundColor: '#080B3A',
             titleColor: '#f1f5f9',
             bodyColor:  '#94a3b8',
             padding: 10,

@@ -1,53 +1,341 @@
 {% extends "base.html" %}
 {% block title %}{{ action }} User{% endblock %}
+
 {% block content %}
-<div class="page-hdr">
-  <h2><i class="bi bi-person text-primary"></i> {{ action }} User</h2>
-  <a href="{% url 'user_mgmt:list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+<style>
+  .usr-breadcrumb { font-size:.78rem; color:#64748b; margin-bottom:.35rem; }
+  .usr-breadcrumb a { color:#E01224; text-decoration:none; }
+  .usr-breadcrumb a:hover { text-decoration:underline; }
+  .form-grid { display:grid; grid-template-columns:1fr 280px; gap:1.5rem; align-items:start; }
+  @media(max-width:900px){ .form-grid{ grid-template-columns:1fr; } }
+  .form-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+  .form-card-header { padding:1.25rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; }
+  .form-card-header .hdr-icon { width:40px; height:40px; border-radius:10px; background:#FEECEF; color:#E01224; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+  .form-card-header h5 { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
+  .form-card-header p { margin:.1rem 0 0; font-size:.78rem; color:#64748b; }
+  .form-card-body { padding:1.5rem; }
+  .section-divider { display:flex; align-items:center; gap:.75rem; margin:1.5rem 0 1rem; }
+  .section-divider:first-child { margin-top:0; }
+  .section-divider span { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; white-space:nowrap; }
+  .section-divider::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+  .form-control, .form-select { border-color:#e2e8f0; font-size:.875rem; border-radius:8px!important; transition:border-color .2s, box-shadow .2s; }
+  .form-control:focus, .form-select:focus { border-color:#E01224; box-shadow:0 0 0 3px rgba(224,18,36,.12); }
+  .form-label { font-size:.8rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
+  .form-text { font-size:.75rem; color:#94a3b8; margin-top:.3rem; }
+  .field-error { font-size:.78rem; color:#b91c1c; margin-top:.3rem; }
+  .pwd-wrap { position:relative; }
+  .pwd-wrap .form-control { padding-right:2.75rem; }
+  .pwd-toggle { position:absolute; right:0; top:0; height:100%; width:2.5rem; border:0; background:transparent; color:#64748b; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:0 8px 8px 0; }
+  .pwd-toggle:hover { color:#E01224; }
+  .role-hint { display:none; margin-top:.45rem; padding:.55rem .75rem; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:.75rem; color:#475569; line-height:1.4; }
+  .role-hint.show { display:block; }
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; }
+  .toggle-row .toggle-info h6 { margin:0; font-size:.875rem; font-weight:600; color:#0f172a; }
+  .toggle-row .toggle-info p { margin:.15rem 0 0; font-size:.75rem; color:#64748b; }
+  .form-switch .form-check-input { width:2.4em; height:1.3em; cursor:pointer; }
+  .form-switch .form-check-input:checked { background-color:#22c55e; border-color:#22c55e; }
+  .form-actions { display:flex; gap:.75rem; flex-wrap:wrap; padding-top:1.25rem; border-top:1px solid #f1f5f9; margin-top:1.5rem; }
+  .btn-save { background:#E01224; border-color:#E01224; color:#fff; font-weight:600; font-size:.875rem; padding:.55rem 1.5rem; border-radius:8px; display:inline-flex; align-items:center; gap:.4rem; }
+  .btn-save:hover { background:#B80E1C; border-color:#B80E1C; color:#fff; }
+  .btn-cancel { font-size:.875rem; padding:.55rem 1.25rem; border-radius:8px; color:#64748b; border:1px solid #e2e8f0; background:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:.35rem; }
+  .btn-cancel:hover { background:#f1f5f9; color:#334155; }
+  .summary-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:1.5rem; }
+  .summary-card-hdr { padding:1rem 1.25rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color:#0f172a; }
+  .summary-card-hdr i { color:#E01224; }
+  .summary-body { padding:1rem 1.25rem; }
+  .summary-row { display:flex; flex-direction:column; gap:.15rem; padding:.55rem 0; border-bottom:1px solid #f1f5f9; }
+  .summary-row:last-child { border-bottom:none; }
+  .summary-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+  .summary-val { font-size:.875rem; font-weight:600; color:#0f172a; min-height:1.2em; word-break:break-word; }
+  .summary-val.ph { color:#cbd5e1; font-weight:400; font-style:italic; }
+  .tip-box { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:.75rem 1rem; font-size:.78rem; color:#92400e; margin-top:1rem; line-height:1.45; }
+  .tip-box i { color:#f59e0b; }
+  .edit-banner { display:flex; align-items:center; gap:.65rem; padding:.75rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:1.25rem; }
+  .edit-banner .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#E01224,#683C15); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; }
+  .edit-banner strong { display:block; font-size:.875rem; color:#0f172a; }
+  .edit-banner span { font-size:.75rem; color:#64748b; }
+</style>
+
+<div class="usr-breadcrumb mb-1">
+  <a href="{% url 'user_mgmt:list' %}"><i class="bi bi-people"></i> Manage Users</a>
+  <i class="bi bi-chevron-right mx-1" style="font-size:.65rem"></i>
+  <span>{{ action }}</span>
 </div>
-<div class="form-panel" style="max-width:560px">
-  {% if action == 'Edit' and target_user %}<p class="text-muted mb-3">Editing: <strong>{{ target_user.username }}</strong></p>{% endif %}
-  <form method="post">
-    {% csrf_token %}
-    {% if action == 'Add' %}
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
-      {{ form.username }}
-      {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors }}</div>{% endif %}
-    </div>
-    {% endif %}
-    <div class="row g-3 mb-3">
-      <div class="col-md-6">
-        <label class="form-label fw-semibold">First Name</label>
-        {{ form.first_name }}
-      </div>
-      <div class="col-md-6">
-        <label class="form-label fw-semibold">Last Name</label>
-        {{ form.last_name }}
-      </div>
-    </div>
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Email</label>
-      {{ form.email }}
-    </div>
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
-      {{ form.role }}
-    </div>
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Password {% if action == 'Edit' %}<span class="text-muted fw-normal">(leave blank to keep)</span>{% else %}<span class="text-danger">*</span>{% endif %}</label>
-      {{ form.password }}
-    </div>
-    {% if action == 'Edit' %}
-    <div class="form-check mb-3">
-      {{ form.is_active }}
-      <label class="form-check-label fw-semibold">Active account</label>
-    </div>
-    {% endif %}
-    <div class="d-flex gap-2">
-      <button type="submit" class="btn btn-primary px-4">Save User</button>
-      <a href="{% url 'user_mgmt:list' %}" class="btn btn-light">Cancel</a>
-    </div>
-  </form>
+
+<div class="page-hdr mb-4">
+  <div>
+    <h2 class="mb-0">
+      <i class="bi bi-{% if action == 'Add' %}person-plus{% else %}pencil-square{% endif %} text-primary me-2"></i>
+      {{ action }} User
+    </h2>
+    <p class="mb-0 mt-1" style="font-size:.82rem;color:#64748b">
+      {% if action == 'Add' %}
+        Create a login account and assign a role for system access.
+      {% else %}
+        Update profile details, role, or reset the password.
+      {% endif %}
+    </p>
+  </div>
+  <a href="{% url 'user_mgmt:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to List
+  </a>
 </div>
+
+<form method="post" id="userForm" autocomplete="off" novalidate>
+  {% csrf_token %}
+
+  <div class="form-grid">
+    <div class="form-card">
+      <div class="form-card-header">
+        <div class="hdr-icon"><i class="bi bi-person-badge"></i></div>
+        <div>
+          <h5>{% if action == 'Add' %}New Account{% else %}Account Details{% endif %}</h5>
+          <p>Only the fields marked with * are required.</p>
+        </div>
+      </div>
+
+      <div class="form-card-body">
+        {% if action == 'Edit' and target_user %}
+        <div class="edit-banner">
+          <div class="avatar">{{ target_user.username|first|upper }}</div>
+          <div>
+            <strong>{{ target_user.username }}</strong>
+            <span>{{ target_user.get_full_name|default:"No full name set" }}</span>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger py-2 px-3 mb-3" style="font-size:.85rem">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <!-- Account -->
+        <div class="section-divider"><span><i class="bi bi-key me-1"></i>Login</span></div>
+
+        {% if action == 'Add' %}
+        <div class="mb-3">
+          <label class="form-label" for="id_username">Username <span class="text-danger">*</span></label>
+          {{ form.username }}
+          <div class="form-text">Used to sign in. Letters, numbers, and @/./+/-/_ only.</div>
+          {% if form.username.errors %}<div class="field-error">{{ form.username.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label" for="id_password">
+            Password
+            {% if action == 'Edit' %}
+              <span class="text-muted fw-normal">(optional)</span>
+            {% else %}
+              <span class="text-danger">*</span>
+            {% endif %}
+          </label>
+          <div class="pwd-wrap">
+            {{ form.password }}
+            <button type="button" class="pwd-toggle" id="pwdToggle" aria-label="Show password" title="Show password">
+              <i class="bi bi-eye" id="pwdToggleIcon"></i>
+            </button>
+          </div>
+          <div class="form-text">
+            {% if action == 'Edit' %}
+              Leave blank to keep the current password.
+            {% else %}
+              Choose a strong password the user can change later.
+            {% endif %}
+          </div>
+          {% if form.password.errors %}<div class="field-error">{{ form.password.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <!-- Profile -->
+        <div class="section-divider"><span><i class="bi bi-card-heading me-1"></i>Profile</span></div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label" for="id_first_name">First name</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="field-error">{{ form.first_name.errors|striptags }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="id_last_name">Last name</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<div class="field-error">{{ form.last_name.errors|striptags }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="id_email">Email</label>
+          {{ form.email }}
+          <div class="form-text">Optional — useful for contact and account recovery.</div>
+          {% if form.email.errors %}<div class="field-error">{{ form.email.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <!-- Access -->
+        <div class="section-divider"><span><i class="bi bi-shield-check me-1"></i>Access</span></div>
+
+        <div class="mb-3">
+          <label class="form-label" for="id_role">Role <span class="text-danger">*</span></label>
+          {{ form.role }}
+          <div class="role-hint" id="roleHint" aria-live="polite"></div>
+          {% if form.role.errors %}<div class="field-error">{{ form.role.errors|striptags }}</div>{% endif %}
+        </div>
+
+        {% if action == 'Edit' %}
+        <div class="toggle-row mb-1">
+          <div class="toggle-info">
+            <h6>Active account</h6>
+            <p>Inactive users cannot sign in.</p>
+          </div>
+          <div class="form-check form-switch m-0">
+            {{ form.is_active }}
+          </div>
+        </div>
+        {% if form.is_active.errors %}<div class="field-error">{{ form.is_active.errors|striptags }}</div>{% endif %}
+        {% endif %}
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-save">
+            <i class="bi bi-check2-circle"></i>
+            {% if action == 'Add' %}Create User{% else %}Save Changes{% endif %}
+          </button>
+          <a href="{% url 'user_mgmt:list' %}" class="btn-cancel">
+            <i class="bi bi-x-lg"></i>Cancel
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="summary-card">
+        <div class="summary-card-hdr">
+          <i class="bi bi-info-circle-fill"></i> Preview
+        </div>
+        <div class="summary-body">
+          {% if action == 'Edit' and target_user %}
+          <div class="summary-row">
+            <span class="summary-lbl">Username</span>
+            <span class="summary-val">{{ target_user.username }}</span>
+          </div>
+          {% else %}
+          <div class="summary-row">
+            <span class="summary-lbl">Username</span>
+            <span class="summary-val ph" id="preview_username">—</span>
+          </div>
+          {% endif %}
+          <div class="summary-row">
+            <span class="summary-lbl">Full name</span>
+            <span class="summary-val ph" id="preview_name">—</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Email</span>
+            <span class="summary-val ph" id="preview_email">—</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Role</span>
+            <span class="summary-val ph" id="preview_role">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-box">
+        <i class="bi bi-lightbulb-fill me-1"></i>
+        <strong>Tip:</strong>
+        {% if action == 'Add' %}
+          Give Staff access for day-to-day work. Use Administrator only for people who manage users and programs.
+        {% else %}
+          Changing the role takes effect on the user’s next page load. A new password applies immediately.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+(function () {
+  var roleHints = {
+    admin: 'Full access — manage users, programs, settings, and audit trails.',
+    staff: 'Day-to-day operations — citizens, beneficiaries, records, and reports.',
+    distributor: 'Ayuda release only — ID / fingerprint tap and grant distribution.'
+  };
+
+  var roleEl = document.getElementById('id_role');
+  var hintEl = document.getElementById('roleHint');
+  var firstEl = document.getElementById('id_first_name');
+  var lastEl = document.getElementById('id_last_name');
+  var emailEl = document.getElementById('id_email');
+  var userEl = document.getElementById('id_username');
+  var pwdEl = document.getElementById('id_password');
+  var pwdBtn = document.getElementById('pwdToggle');
+  var pwdIcon = document.getElementById('pwdToggleIcon');
+
+  function setPreview(id, value) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var v = (value || '').trim();
+    if (!v) {
+      el.textContent = '—';
+      el.classList.add('ph');
+    } else {
+      el.textContent = v;
+      el.classList.remove('ph');
+    }
+  }
+
+  function updateRole() {
+    if (!roleEl || !hintEl) return;
+    var val = roleEl.value;
+    var text = roleHints[val] || '';
+    hintEl.textContent = text;
+    hintEl.classList.toggle('show', !!text);
+    var label = roleEl.options[roleEl.selectedIndex]
+      ? roleEl.options[roleEl.selectedIndex].text
+      : '';
+    setPreview('preview_role', label);
+  }
+
+  function updateName() {
+    var name = [(firstEl && firstEl.value) || '', (lastEl && lastEl.value) || '']
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean)
+      .join(' ');
+    setPreview('preview_name', name);
+  }
+
+  function updateEmail() {
+    setPreview('preview_email', emailEl ? emailEl.value : '');
+  }
+
+  function updateUsername() {
+    setPreview('preview_username', userEl ? userEl.value : '');
+  }
+
+  if (roleEl) {
+    roleEl.addEventListener('change', updateRole);
+    updateRole();
+  }
+  if (firstEl) firstEl.addEventListener('input', updateName);
+  if (lastEl) lastEl.addEventListener('input', updateName);
+  if (emailEl) emailEl.addEventListener('input', updateEmail);
+  if (userEl) userEl.addEventListener('input', updateUsername);
+  updateName();
+  updateEmail();
+  updateUsername();
+
+  if (pwdBtn && pwdEl && pwdIcon) {
+    pwdBtn.addEventListener('click', function () {
+      var show = pwdEl.type === 'password';
+      pwdEl.type = show ? 'text' : 'password';
+      pwdIcon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+      pwdBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      pwdBtn.setAttribute('title', show ? 'Hide password' : 'Show password');
+    });
+  }
+
+  // Placeholders
+  if (userEl) userEl.placeholder = 'e.g. jdelacruz';
+  if (firstEl) firstEl.placeholder = 'First name';
+  if (lastEl) lastEl.placeholder = 'Last name';
+  if (emailEl) emailEl.placeholder = 'name@example.gov.ph';
+  if (pwdEl) pwdEl.placeholder = {% if action == 'Edit' %}'Leave blank to keep current'{% else %}'Enter a password'{% endif %};
+})();
+</script>
 {% endblock %}

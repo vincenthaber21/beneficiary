@@ -1,9 +1,9 @@
 """
-Local HTTP bridge for Neurotechnology Free Fingerprint Verification SDK (Nffv).
+Local HTTP bridge for fingerprint scanners.
 
-Uses the SDK from:
-  FreeFingerprintVerification_3_1_SDK_2026-03-30.zip
-copied into fingerprint_bridge/lib/ (Nffv.dll + FScanners/).
+Backends (auto):
+  1. Hikvision FPModule_SDK.dll  — DS-K1F820-F
+  2. Neurotechnology Nffv        — Futronic, SecuGen, ZKTeco, …
 
 Run:
 
@@ -11,9 +11,14 @@ Run:
     pip install -r requirements.txt
     python app.py
 
+For Hikvision (recommended for DS-K1F820-F):
+    copy FPModule_SDK.dll into fingerprint_bridge/lib/
+    If the DLL is 32-bit, use 32-bit Python:  py -3-32 app.py
+
 Browser / Django form calls:
-    GET http://127.0.0.1:8765/status
-    GET http://127.0.0.1:8765/capture
+    GET  http://127.0.0.1:8765/status
+    GET  http://127.0.0.1:8765/capture
+    POST http://127.0.0.1:8765/match
 """
 
 from __future__ import annotations
@@ -33,7 +38,7 @@ def _json_bytes(payload: dict) -> bytes:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Nffv-Fingerprint-Bridge/1.0"
+    server_version = "Fingerprint-Bridge/2.0"
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -115,6 +120,7 @@ class Handler(BaseHTTPRequestHandler):
                     "threshold": threshold,
                     "image_data": result.get("image_data"),
                     "device_name": result.get("device_name"),
+                    "backend": result.get("backend"),
                 },
             )
             return
@@ -127,15 +133,19 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     print("=" * 64)
-    print(" Free Fingerprint Verification SDK (Nffv) Bridge")
+    print(" Fingerprint Bridge (Hikvision FPModule / Nffv)")
     print(f" Listening on http://{HOST}:{PORT}")
     print(" Endpoints: GET /status  GET /capture  POST /match")
     print("=" * 64)
     status = fp.sdk_status()
+    backend = status.get("backend") or ("hikvision" if fp._hik_dll_path() else "nffv")
+    print(f" Backend: {backend}")
     if status.get("ok"):
         print(" SDK OK")
         scanners = status.get("available_scanners") or []
-        print(f" Scanner modules ({len(scanners)}): {', '.join(scanners) or '(none)'}")
+        print(f" Scanners: {', '.join(scanners) or '(none detected)'}")
+        if status.get("device_info"):
+            print(f" Device: {status['device_info']}")
     else:
         print(f" SDK NOT READY: {status.get('error')}")
         scanners = status.get("available_scanners") or []
@@ -143,6 +153,8 @@ def main():
             print(f" Available modules: {', '.join(scanners)}")
         if status.get("note"):
             print(f" Note: {status['note']}")
+        if not fp._hik_dll_path():
+            print(" Tip: For DS-K1F820-F, copy FPModule_SDK.dll into fingerprint_bridge/lib/")
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     try:
         httpd.serve_forever()

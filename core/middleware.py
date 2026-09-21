@@ -1,5 +1,8 @@
 """Middleware that records module opens and mutating actions for security audit."""
+from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
+
+from utils import is_distributor
 
 from .audit import (
     infer_action,
@@ -8,6 +11,27 @@ from .audit import (
     should_skip_path,
 )
 from .models import AuditTrail
+
+
+class DistributorAccessMiddleware(MiddlewareMixin):
+    """Ayuda distributors may only use the ID / Fingerprint Tap station."""
+
+    def process_request(self, request):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated or not is_distributor(user):
+            return None
+
+        path = request.path or "/"
+        if (
+            path.startswith("/beneficiaries/rfid")
+            or path.startswith("/accounts/logout")
+            or path.startswith("/accounts/login")
+            or path.startswith("/static/")
+            or path.startswith("/media/")
+        ):
+            return None
+
+        return redirect("beneficiaries:rfid")
 
 
 class AuditTrailMiddleware(MiddlewareMixin):

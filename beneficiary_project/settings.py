@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     "reports",
     "user_mgmt",
     "settings_mgmt",
-    "citizens",
+    "citizens.apps.CitizensConfig",
 ]
 
 MIDDLEWARE = [
@@ -55,6 +55,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.DistributorAccessMiddleware",
     "core.middleware.AuditTrailMiddleware",
 ]
 
@@ -83,6 +84,15 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+# In-memory cache for citizen search / available-count on beneficiary forms.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ebahagi-cache",
+        "TIMEOUT": 300,
     }
 }
 

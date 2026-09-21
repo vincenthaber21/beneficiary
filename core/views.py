@@ -5,10 +5,12 @@ from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from django.shortcuts import render
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
-from utils import admin_required
+from utils import admin_required, is_distributor, staff_required
 
 
 def _parse_date(value):
@@ -183,6 +185,9 @@ def _build_bar_series(today, date_from, date_to, filter_mode):
 
 @login_required
 def dashboard(request):
+    if is_distributor(request.user):
+        return redirect("beneficiaries:rfid")
+
     from beneficiaries.models import Beneficiary
     from citizens.barangays import normalize_barangay_name
     from citizens.models import Barangay, Citizen
@@ -255,11 +260,6 @@ def dashboard(request):
     )
     total_records = records_qs.count()
     released_in_period = released_qs.count()
-
-    recent_records = (
-        records_qs.select_related("beneficiary", "program", "granted_by")
-        .order_by("-date_granted", "-created_at")[:8]
-    )
 
     class_rows = (
         beneficiaries_qs.values("beneficiary_class")
@@ -348,8 +348,6 @@ def dashboard(request):
         "total_records": total_records,
         "released_this_month": released_in_period,
         "released_label": "In selected period" if flt["is_filtered"] else "All released",
-        "recent_records": recent_records,
-        "class_counts": class_counts,
         "bar_labels_json": json.dumps(bar_labels),
         "bar_data_json": json.dumps(bar_data),
         "pie_labels_json": json.dumps(pie_labels),
@@ -460,3 +458,39 @@ def audit_trails(request):
         "filter_date_to": date_to.isoformat() if date_to else "",
     }
     return render(request, "core/audit_trails.html", context)
+
+
+def _opt_int(payload, key):
+    val = payload.get(key)
+    if val in (None, "", "null"):
+        return None
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return None
+
+
+@staff_required
+@require_POST
+def fingerprint_check(request):
+    """Scan citizens and beneficiaries for an already-registered fingerprint."""
+    from citizens.fingerprint_match import uniqueness_report
+
+    try:
+        payload = json.loads(request.body.decode() or "{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = request.POST
+
+    template = (payload.get("template_data") or payload.get("fp_hash") or "").strip()
+    if not template:
+        return JsonResponse(
+            {"ok": False, "error": "No fingerprint template was provided."},
+            status=400,
+        )
+
+    report = uniqueness_report(
+        template,
+        exclude_citizen_fp_id=_opt_int(payload, "exclude_citizen_fp_id"),
+        exclude_beneficiary_fp_id=_opt_int(payload, "exclude_beneficiary_fp_id"),
+    )
+    return JsonResponse(report)

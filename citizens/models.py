@@ -11,8 +11,10 @@ class Citizen(models.Model):
     CIVIL_STATUS_CHOICES = [
         ("single", "Single"),
         ("married", "Married"),
+        ("live_in", "Common law / Live-in"),
         ("widowed", "Widowed"),
         ("separated", "Separated"),
+        ("annulled", "Annulled"),
         ("divorced", "Divorced"),
     ]
     STATUS_CHOICES = [
@@ -217,6 +219,24 @@ class Citizen(models.Model):
         lookup = dict(self.HEALTH_CONDITION_CHOICES)
         return [lookup.get(v, v) for v in (self.health_conditions or [])]
 
+    def ensure_id_number(self):
+        """Assign a unique Citizen ID if missing, then return it.
+        Format: CR-<year>-<zero-padded pk> (same as auto-assign on create)."""
+        if self.registry_no:
+            return self.registry_no
+        from django.utils import timezone
+
+        year = timezone.now().year
+        candidate = f"CR-{year}-{self.pk:05d}"
+        suffix = 0
+        base = candidate
+        while Citizen.objects.filter(registry_no=candidate).exclude(pk=self.pk).exists():
+            suffix += 1
+            candidate = f"{base}-{suffix}"
+        self.registry_no = candidate
+        self.save(update_fields=["registry_no"])
+        return self.registry_no
+
     def save(self, *args, **kwargs):
         creating = self.pk is None
         if not self.municipality:
@@ -225,12 +245,7 @@ class Citizen(models.Model):
             self.province = "La Union"
         super().save(*args, **kwargs)
         if creating and not self.registry_no:
-            from django.utils import timezone
-
-            year = timezone.now().year
-            # Compact ID like the desktop app (e.g. 26000001) plus CR- label
-            self.registry_no = f"CR-{year}-{self.pk:05d}"
-            super().save(update_fields=["registry_no"])
+            self.ensure_id_number()
 
 
 class Barangay(models.Model):
@@ -394,6 +409,11 @@ class CitizenFingerprint(models.Model):
                 fields=["citizen", "finger"],
                 name="uniq_citizen_finger",
             ),
+            models.UniqueConstraint(
+                fields=["template_data"],
+                condition=~models.Q(template_data=""),
+                name="uniq_citizen_fp_template_data",
+            ),
         ]
         indexes = [
             models.Index(fields=["template_data"]),
@@ -401,6 +421,29 @@ class CitizenFingerprint(models.Model):
 
     def __str__(self):
         return f"{self.citizen} — {self.get_finger_display()}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from .fingerprint_match import find_duplicate_fingerprint, normalize_template
+
+        super().clean()
+        self.template_data = normalize_template(self.template_data)
+        if not self.template_data:
+            return
+        owner, _fp, _dist = find_duplicate_fingerprint(
+            self.template_data,
+            exclude_citizen_fp_id=self.pk,
+        )
+        if owner:
+            raise ValidationError(
+                {
+                    "template_data": (
+                        f"This fingerprint is already registered to {owner}. "
+                        "Each finger must be unique."
+                    )
+                }
+            )
 
     @property
     def is_registered(self):

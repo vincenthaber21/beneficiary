@@ -9,3 +9,8 @@ class CoreConfig(AppConfig):
     def ready(self):
         # Register auth signal handlers for login / logout audit logging.
         from . import signals  # noqa: F401
+
+        # Start fingerprint_bridge with runserver (single process on :8765).
+        from .fingerprint_bridge import ensure_fingerprint_bridge
+
+        ensure_fingerprint_bridge()

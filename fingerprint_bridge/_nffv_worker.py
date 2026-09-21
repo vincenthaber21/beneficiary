@@ -169,9 +169,10 @@ def main():
         label = STATUS_LABELS.get(st, str(st))
         hints = {
             NFES_NO_SCANNER: (
-                "No compatible scanner detected. "
-                "Nffv does not support Hikvision DS-K1F820-F. "
-                "Use Futronic, SecuGen, DigitalPersona, ZKTeco, Suprema, Nitgen, etc."
+                "No Nffv-compatible scanner detected. "
+                "This bridge defaults to Hikvision DS-K1F820-F via FPModule_SDK.dll — "
+                "put that DLL in fingerprint_bridge/lib/ and restart (do not use Nffv for Hikvision). "
+                "Nffv only supports Futronic, SecuGen, DigitalPersona, ZKTeco, Suprema, Nitgen, etc."
             ),
             NFES_SCANNER_TIMEOUT: "No finger detected in time. Place finger on the scanner and retry.",
             NFES_QUALITY_CHECK_FAILED: "Fingerprint quality too low. Clean sensor and press firmly.",

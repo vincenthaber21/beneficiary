@@ -3,27 +3,41 @@
 
 {% block content %}
 <div class="module" style="margin-bottom:1.25rem;">
-  <table style="width:100%;">
+  <table>
     <caption>
       <a href="{% url 'admin:core_audittrail_changelist' %}" class="section" title="Security">
         Security
       </a>
     </caption>
+    <thead class="visually-hidden">
+      <tr>
+        <th scope="col">{% translate 'Model name' %}</th>
+        <th scope="col">{% translate 'Add link' %}</th>
+        <th scope="col">{% translate 'Change or view list link' %}</th>
+      </tr>
+    </thead>
     <tr>
       <th scope="row">
-        <a href="{% url 'admin:core_audittrail_changelist' %}">Audit Trails</a>
+        <a href="{% url 'admin:core_audittrail_changelist' %}"
+           title="Login / logout history, modules opened, and actions performed by users.">
+          Audit Trails
+        </a>
       </th>
+      <td></td>
       <td>
-        Login / logout history, modules opened, and actions performed by users.
+        <a href="{% url 'admin:core_audittrail_changelist' %}" class="viewlink">{% translate 'View' %}</a>
       </td>
     </tr>
     <tr>
       <th scope="row">
-        <a href="{% url 'admin:backup_restore' %}">Backup &amp; Restore</a>
+        <a href="{% url 'admin:backup_restore' %}"
+           title="Download a full data backup or restore from a previous backup. Superuser access only.">
+          Backup &amp; Restore
+        </a>
       </th>
+      <td></td>
       <td>
-        Download a full data backup or restore from a previous backup.
-        Superuser access only.
+        <a href="{% url 'admin:backup_restore' %}" class="viewlink">{% translate 'View' %}</a>
       </td>
     </tr>
   </table>

@@ -4,13 +4,13 @@
 {% block content %}
 <style>
   .set-breadcrumb { font-size:.78rem; color:#64748b; margin-bottom:.35rem; }
-  .set-breadcrumb a { color:#3b82f6; text-decoration:none; }
+  .set-breadcrumb a { color:#E01224; text-decoration:none; }
   .set-breadcrumb a:hover { text-decoration:underline; }
   .form-grid { display:grid; grid-template-columns:1fr 290px; gap:1.5rem; align-items:start; }
   @media(max-width:960px){ .form-grid{ grid-template-columns:1fr; } }
   .form-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
   .form-card-header { padding:1.25rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; }
-  .form-card-header .hdr-icon { width:40px; height:40px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+  .form-card-header .hdr-icon { width:40px; height:40px; border-radius:10px; background:#FEECEF; color:#E01224; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
   .form-card-header h5 { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
   .form-card-header p { margin:.1rem 0 0; font-size:.78rem; color:#64748b; }
   .form-card-body { padding:1.5rem; }
@@ -19,17 +19,17 @@
   .section-divider span { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; white-space:nowrap; }
   .section-divider::after { content:''; flex:1; height:1px; background:#e2e8f0; }
   .form-control, .form-select { border-color:#e2e8f0; font-size:.875rem; border-radius:8px!important; transition:border-color .2s,box-shadow .2s; }
-  .form-control:focus, .form-select:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+  .form-control:focus, .form-select:focus { border-color:#E01224; box-shadow:0 0 0 3px rgba(224,18,36,.12); }
   .form-label { font-size:.8rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
   .form-text { font-size:.75rem; color:#94a3b8; margin-top:.3rem; }
   .input-group .input-group-text { background:#f8fafc; border-color:#e2e8f0; color:#64748b; font-size:.82rem; font-weight:600; }
   .form-actions { display:flex; gap:.75rem; padding-top:1.25rem; border-top:1px solid #f1f5f9; margin-top:1.5rem; }
-  .btn-save { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600; font-size:.875rem; padding:.55rem 1.5rem; border-radius:8px; display:flex; align-items:center; gap:.4rem; transition:background .2s; }
-  .btn-save:hover { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+  .btn-save { background:#E01224; border-color:#E01224; color:#fff; font-weight:600; font-size:.875rem; padding:.55rem 1.5rem; border-radius:8px; display:flex; align-items:center; gap:.4rem; transition:background .2s; }
+  .btn-save:hover { background:#B80E1C; border-color:#B80E1C; color:#fff; }
   /* sidebar */
   .summary-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:1.5rem; }
   .summary-card-hdr { padding:1rem 1.25rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:700; color:#0f172a; }
-  .summary-card-hdr i { color:#3b82f6; }
+  .summary-card-hdr i { color:#E01224; }
   .summary-body { padding:1rem 1.25rem; }
   .summary-row { display:flex; flex-direction:column; gap:.15rem; padding:.55rem 0; border-bottom:1px solid #f1f5f9; }
   .summary-row:last-child { border-bottom:none; }
@@ -85,7 +85,7 @@
         <div class="mb-3">
           <label class="form-label">Organization / Program Name</label>
           <input type="text" name="setting_{{ s.key }}" value="{{ s.value }}"
-                 class="form-control" id="field_org_name" placeholder="e.g. e-BAHAGI Program">
+                 class="form-control" id="field_org_name" placeholder="Humanitarian Assistance Grant Management">
           {% if s.description %}<div class="form-text">{{ s.description }}</div>{% endif %}
         </div>
         {% endif %}
@@ -215,7 +215,7 @@
         </p>
         <a href="{% url 'settings_mgmt:backup_restore' %}"
            class="btn btn-sm w-100"
-           style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-weight:600;border-radius:8px;">
+           style="background:#FEECEF;border:1px solid #F5A8AE;color:#E01224;font-weight:600;border-radius:8px;">
           <i class="bi bi-shield-lock me-1"></i> Open Backup &amp; Restore
         </a>
       </div>

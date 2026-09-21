@@ -7,6 +7,9 @@
   .status-deceased{background:#fee2e2;color:#b91c1c;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
   .status-moved{background:#fff7ed;color:#c2410c;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
   .reg-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;color:#475569;background:#f8fafc;padding:.15rem .45rem;border-radius:6px;border:1px solid #e2e8f0}
+  .aid-enrolled{background:#FEECEF;color:#B80E1C;font-weight:700;font-size:.72rem;padding:.25rem .65rem;border-radius:99px;border:1px solid #F5A8AE}
+  .aid-none{background:#f1f5f9;color:#64748b;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
+  .aid-availed{background:#dcfce7;color:#15803d;font-weight:700;font-size:.72rem;padding:.25rem .65rem;border-radius:99px;border:1px solid #bbf7d0}
 </style>
 
 <div class="page-hdr">
@@ -14,9 +17,16 @@
     <h2><i class="bi bi-person-vcard text-primary"></i> Citizen Registry</h2>
     <small class="text-muted">Master list of registered citizens / residents</small>
   </div>
-  <a href="{% url 'citizens:create' %}" class="btn btn-primary">
-    <i class="bi bi-person-plus"></i> Add Citizen
-  </a>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'citizens:id_cards_all' %}" class="btn btn-outline-primary">
+      <i class="bi bi-printer-fill"></i>
+      <span class="d-none d-sm-inline">Print All ID Cards</span>
+      <span class="d-sm-none">Print IDs</span>
+    </a>
+    <a href="{% url 'citizens:create' %}" class="btn btn-primary">
+      <i class="bi bi-person-plus"></i> Add Citizen
+    </a>
+  </div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -34,6 +44,12 @@
   </div>
   <div class="col-6 col-md-3">
     <div class="card-stat">
+      <div class="stat-val" style="color:#E01224">{{ count_enrolled }}</div>
+      <div class="stat-lbl">Beneficiaries</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
       <div class="stat-val" style="color:#64748b">{{ count_inactive }}</div>
       <div class="stat-lbl">Other status</div>
     </div>
@@ -43,12 +59,12 @@
 <div class="panel mb-3">
   <div class="p-3">
     <form method="get" class="row g-2 align-items-end">
-      <div class="col-md-4">
+      <div class="col-md-3">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Search</label>
         <input type="text" name="q" value="{{ q }}" class="form-control"
                placeholder="Name, registry no., PhilSys, contact…">
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Status</label>
         <select name="status" class="form-select">
           <option value="">All statuses</option>
@@ -57,13 +73,22 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Barangay</label>
         <select name="barangay" class="form-select">
           <option value="">All barangays</option>
           {% for b in barangays %}
           <option value="{{ b }}" {% if barangay == b %}selected{% endif %}>{{ b }}</option>
           {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Aid / Beneficiary</label>
+        <select name="aid" class="form-select">
+          <option value="">All</option>
+          <option value="enrolled" {% if aid == "enrolled" %}selected{% endif %}>Enrolled as beneficiary</option>
+          <option value="availed" {% if aid == "availed" %}selected{% endif %}>Has availed (grant on record)</option>
+          <option value="not_enrolled" {% if aid == "not_enrolled" %}selected{% endif %}>Not enrolled</option>
         </select>
       </div>
       <div class="col-auto d-flex gap-2">
@@ -89,6 +114,7 @@
           <th>Barangay</th>
           <th>Contact</th>
           <th>Status</th>
+          <th>Aid</th>
           <th>Registered</th>
           <th></th>
         </tr>
@@ -107,15 +133,29 @@
           <td>{{ c.barangay|default:"—" }}</td>
           <td>{{ c.contact_number|default:"—" }}</td>
           <td><span class="status-{{ c.status }}">{{ c.get_status_display }}</span></td>
+          <td>
+            {% if c.beneficiary %}
+              <a href="{% url 'beneficiaries:detail' c.beneficiary.pk %}" class="text-decoration-none">
+                <span class="aid-enrolled" title="{{ c.beneficiary.beneficiary_class }}">Beneficiary</span>
+              </a>
+            {% else %}
+              <span class="aid-none">Not enrolled</span>
+            {% endif %}
+          </td>
           <td>{{ c.date_registered }}</td>
           <td class="text-end text-nowrap">
-            <a href="{% url 'citizens:update' c.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+            {% if not c.beneficiary %}
+            <a href="{% url 'beneficiaries:create' %}?citizen={{ c.pk }}" class="btn btn-sm btn-outline-danger me-1" title="Enroll as beneficiary"><i class="bi bi-person-check"></i></a>
+            {% endif %}
+            <a href="{% url 'citizens:detail' c.pk %}" class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></a>
+            <a href="{% url 'citizens:id_card' c.pk %}" class="btn btn-sm btn-outline-warning me-1" title="Generate ID card"><i class="bi bi-person-vcard"></i></a>
+            <a href="{% url 'citizens:update' c.pk %}" class="btn btn-sm btn-outline-secondary me-1" title="Edit"><i class="bi bi-pencil"></i></a>
             <a href="{% url 'citizens:delete' c.pk %}" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></a>
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="9" class="text-center text-muted py-5">
+          <td colspan="10" class="text-center text-muted py-5">
             No citizens found.
             <a href="{% url 'citizens:create' %}">Register the first citizen</a>.
           </td>
@@ -124,5 +164,26 @@
       </tbody>
     </table>
   </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top" style="background:#f8fafc">
+    <span class="text-muted" style="font-size:.8rem">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status }}&barangay={{ barangay }}&aid={{ aid }}">Prev</a>
+          </li>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status }}&barangay={{ barangay }}&aid={{ aid }}">Next</a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

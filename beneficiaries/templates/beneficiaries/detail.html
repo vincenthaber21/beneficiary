@@ -16,6 +16,17 @@
       <div class="panel-hdr"><span><i class="bi bi-person"></i> Profile</span></div>
       <div class="p-3">
         <table class="table table-sm mb-0" style="font-size:.875rem">
+          {% if beneficiary.citizen_id %}
+          <tr>
+            <td class="text-muted fw-semibold" style="width:40%">Citizen ID</td>
+            <td>
+              <a href="{% url 'citizens:detail' beneficiary.citizen_id %}">
+                <code>{{ beneficiary.citizen.registry_no|default:beneficiary.citizen_id }}</code>
+              </a>
+              <a href="{% url 'citizens:update' beneficiary.citizen_id %}" class="btn btn-link btn-sm p-0 ms-1" title="Edit personal data in Citizen Registry">Edit in Citizens</a>
+            </td>
+          </tr>
+          {% endif %}
           <tr><td class="text-muted fw-semibold" style="width:40%">Class</td><td><span class="badge" style="background:#e0e7ff;color:#3730a3">{{ beneficiary.beneficiary_class }}</span></td></tr>
           <tr><td class="text-muted fw-semibold">Monthly Income</td><td>₱{{ beneficiary.monthly_income|floatformat:2 }}</td></tr>
           <tr><td class="text-muted fw-semibold">Contact</td><td>{{ beneficiary.contact_number|default:"—" }}</td></tr>

@@ -21,6 +21,7 @@
           <td>
             {% if u.is_superuser %}<span class="badge badge-admin">Superuser</span>
             {% elif u.profile.role == 'admin' %}<span class="badge badge-admin">Admin</span>
+            {% elif u.profile.role == 'distributor' %}<span class="badge badge-distributor">Ayuda Distributor</span>
             {% else %}<span class="badge badge-staff">Staff</span>{% endif %}
           </td>
           <td>{% if u.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>

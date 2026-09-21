@@ -5,63 +5,132 @@
 <link rel="stylesheet" href="{% static 'idcard.css' %}">
 <style>
   .cr-breadcrumb{font-size:.78rem;color:#64748b;margin-bottom:.35rem}
-  .cr-breadcrumb a{color:#3b82f6;text-decoration:none}
-  .form-grid{display:grid;grid-template-columns:1fr 340px;gap:1.25rem;align-items:start}
-  @media(max-width:1100px){.form-grid{grid-template-columns:1fr 300px}}
+  .cr-breadcrumb a{color:#E01224;text-decoration:none}
+  .form-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:1.25rem;align-items:start}
+  @media(max-width:1200px){.form-grid{grid-template-columns:minmax(0,1fr) 380px}}
   @media(max-width:960px){.form-grid{grid-template-columns:1fr}}
   .panel-box{background:#fff;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:1rem;overflow:hidden}
-  .panel-box-title{background:#f1f5f9;border-bottom:1px solid #cbd5e1;padding:.45rem .85rem;font-size:.82rem;font-weight:700;color:#0f172a}
+  .panel-box.panel-box-family{overflow:visible;position:relative;z-index:4}
+  .panel-box.panel-box-family .panel-box-title{border-radius:8px 8px 0 0}
+  .panel-box.panel-box-family .panel-box-body{overflow:visible}
+  .family-member-picker{position:relative;min-width:220px}
+  .family-member-search{
+    width:100%;font-size:.8rem!important;padding:.3rem .5rem;
+  }
+  .family-member-select{display:none!important}
+  .family-search-results{
+    position:fixed;z-index:1300;display:none;max-height:280px;overflow:auto;
+    background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+    box-shadow:0 12px 32px rgba(15,23,42,.18);
+  }
+  .family-search-results.open{display:block}
+  .family-search-item{
+    display:flex;align-items:center;gap:.55rem;width:100%;text-align:left;border:0;
+    background:transparent;padding:.55rem .7rem;border-bottom:1px solid #f1f5f9;cursor:pointer;
+  }
+  .family-search-item:last-child{border-bottom:0}
+  .family-search-item:hover,.family-search-item.active{background:#FEECEF}
+  .family-search-item .fsr-av{
+    width:28px;height:28px;border-radius:7px;background:#E01224;color:#fff;
+    font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .family-search-item .fsr-body{min-width:0;flex:1}
+  .family-search-item .fsr-name{font-size:.8rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .family-search-item .fsr-meta{font-size:.68rem;color:#64748b;margin-top:.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .family-search-item .fsr-id{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.65rem;font-weight:700;
+    color:#E01224;background:#FEECEF;border:1px solid #F5A8AE;border-radius:5px;padding:.15rem .35rem;flex-shrink:0;
+  }
+  .family-search-empty{padding:.7rem;font-size:.78rem;color:#64748b}
+  .family-selected-label{
+    display:none;font-size:.72rem;font-weight:600;color:#166534;background:#f0fdf4;
+    border:1px solid #bbf7d0;border-radius:6px;padding:.25rem .45rem;margin-top:.3rem;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .family-selected-label.show{display:block}
+  .panel-box-title{display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:#f1f5f9;border-bottom:1px solid #cbd5e1;padding:.5rem .85rem;font-size:.82rem;font-weight:700;color:#0f172a}
+  .panel-box-title .panel-title-text{display:flex;align-items:center;gap:.4rem}
   .panel-box-body{padding:.85rem}
   .form-label{font-size:.75rem;font-weight:600;color:#475569;margin-bottom:.25rem}
   .form-control,.form-select{border-color:#cbd5e1;font-size:.85rem;border-radius:6px!important}
-  .form-control:focus,.form-select:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+  .form-control:focus,.form-select:focus{border-color:#E01224;box-shadow:0 0 0 3px rgba(224,18,36,.12)}
   .form-control[readonly]{background:#f8fafc;color:#64748b}
   .req{color:#ef4444}
-  .citizen-id-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:.45rem .7rem}
+  .citizen-id-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;font-weight:700;color:#E01224;background:#FEECEF;border:1px solid #F5A8AE;border-radius:6px;padding:.45rem .7rem}
   .check-list{max-height:160px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem .65rem;background:#fafafa}
   .check-list .form-check{margin-bottom:.35rem}
   .check-list .form-check-label{font-size:.8rem;color:#334155}
-  .family-table{font-size:.8rem;margin:0}
-  .family-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}
-  .family-actions{display:flex;flex-direction:column;gap:.4rem}
+  .panel-hint{font-size:.75rem;color:#64748b;margin:0 0 .75rem}
+  .family-table,.fp-table{font-size:.8rem;margin:0;border-color:#e2e8f0}
+  .family-table th,.fp-table th{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc;font-weight:600;border-color:#e2e8f0;white-space:nowrap}
+  .family-table td,.fp-table td{border-color:#e2e8f0;vertical-align:middle}
+  .family-table tbody tr:hover,.fp-table tbody tr:hover{background:#f8fafc}
+  .fp-row-active{background:#FEECEF!important;box-shadow:inset 3px 0 0 #E01224}
+  .fp-row-active:hover{background:#FEECEF!important}
+  .row-actions{width:44px;text-align:center}
+  .row-remove-btn{width:32px;height:32px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:#94a3b8;display:inline-flex;align-items:center;justify-content:center;transition:color .15s,background .15s,border-color .15s}
+  .row-remove-btn:hover{color:#dc2626;background:#fef2f2;border-color:#fecaca}
+  .row-remove-btn:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+  .btn-add-row{font-size:.8rem;font-weight:600}
   .bottom-actions{display:flex;gap:.5rem;flex-wrap:wrap;padding:.85rem 0 0;margin-top:.5rem;border-top:1px solid #e2e8f0}
-  .btn-save{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:600}
-  .btn-save:hover{background:#1d4ed8;color:#fff}
+  .btn-save{background:#E01224;border-color:#E01224;color:#fff;font-weight:600}
+  .btn-save:hover{background:#B80E1C;color:#fff}
   .sig-pad-wrap{position:relative;border:2px dashed #cbd5e1;border-radius:8px;background:#fff;overflow:hidden}
-  .sig-pad-wrap:focus-within,.sig-pad-wrap.active{border-color:#3b82f6}
+  .sig-pad-wrap:focus-within,.sig-pad-wrap.active{border-color:#E01224}
   .sig-pad{display:block;width:100%;height:120px;touch-action:none;cursor:crosshair}
   .sig-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.4rem;color:#cbd5e1;font-size:.85rem;font-weight:600;pointer-events:none}
-  .fp-table{font-size:.8rem;margin:0}
-  .fp-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}
-  .fp-scan-cell{display:flex;gap:.35rem;align-items:center}
+  .fp-scan-cell{display:flex;gap:.5rem;align-items:center}
   .fp-scan-cell .form-control{flex:1;min-width:0}
-  .fp-status{font-size:.72rem;font-weight:600;margin-top:.25rem}
+  .fp-status{font-size:.72rem;font-weight:600;margin-top:.2rem}
   .fp-status.ok{color:#15803d}
   .fp-status.wait{color:#64748b}
-  .fp-status.listening{color:#1d4ed8}
-  .fp-preview{width:44px;height:52px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+  .fp-status.listening{color:#E01224}
+  .fp-status.dup{color:#dc2626}
+  .fp-preview{width:40px;height:48px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
   .fp-preview img{max-width:100%;max-height:100%;object-fit:contain}
-  .fp-preview i{color:#94a3b8;font-size:1.1rem}
+  .fp-preview i{color:#94a3b8;font-size:1rem}
   .fp-preview.has-scan{border-color:#86efac;background:#f0fdf4}
   .fp-preview.has-scan i{color:#16a34a}
-  .fp-hint{font-size:.75rem;color:#64748b;margin:.35rem 0 0}
-  .fp-station{display:grid;grid-template-columns:180px 1fr;gap:1rem;align-items:stretch;margin-bottom:1rem}
-  @media(max-width:700px){.fp-station{grid-template-columns:1fr}}
-  .fp-pad{border:2px dashed #93c5fd;border-radius:12px;background:linear-gradient(180deg,#eff6ff,#fff);padding:1rem .75rem;text-align:center;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.35rem;transition:border-color .2s,box-shadow .2s,background .2s}
-  .fp-pad.listening{border-color:#2563eb;border-style:solid;box-shadow:0 0 0 4px rgba(37,99,235,.15);background:linear-gradient(180deg,#dbeafe,#eff6ff);animation:fpPulse 1.4s ease-in-out infinite}
-  .fp-pad.captured{border-color:#22c55e;border-style:solid;background:linear-gradient(180deg,#dcfce7,#f0fdf4);animation:none;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
-  .fp-pad-icon{font-size:2.4rem;color:#2563eb;line-height:1}
+  .fp-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.85rem}
+  .fp-toolbar .fp-active-label{font-size:.75rem;color:#64748b;margin-left:auto}
+  .fp-station{display:grid;grid-template-columns:160px 1fr;gap:1rem;align-items:center;margin-bottom:.85rem;padding:.85rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px}
+  @media(max-width:700px){.fp-station{grid-template-columns:1fr}.fp-toolbar .fp-active-label{margin-left:0;width:100%}}
+  .fp-pad{border:1px solid #F5A8AE;border-radius:10px;background:#fff;padding:.85rem .65rem;text-align:center;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;transition:border-color .2s,box-shadow .2s,background .2s}
+  .fp-pad.listening{border-color:#E01224;box-shadow:0 0 0 3px rgba(224,18,36,.12);background:#FEECEF;animation:fpPulse 1.4s ease-in-out infinite}
+  .fp-pad.captured{border-color:#22c55e;background:#f0fdf4;animation:none;box-shadow:0 0 0 3px rgba(34,197,94,.1)}
+  .fp-pad.duplicate{border-color:#ef4444;background:#fef2f2;animation:none;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+  .fp-pad-icon{font-size:2rem;color:#E01224;line-height:1}
   .fp-pad.captured .fp-pad-icon{color:#16a34a}
-  .fp-pad-title{font-size:.82rem;font-weight:700;color:#1e3a8a}
+  .fp-pad.duplicate .fp-pad-icon{color:#dc2626}
+  .fp-pad-title{font-size:.8rem;font-weight:700;color:#080B3A}
   .fp-pad.captured .fp-pad-title{color:#166534}
-  .fp-pad-sub{font-size:.72rem;color:#64748b;max-width:140px}
-  @keyframes fpPulse{0%,100%{box-shadow:0 0 0 4px rgba(37,99,235,.12)}50%{box-shadow:0 0 0 8px rgba(37,99,235,.22)}}
-  .fp-template-input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em}
+  .fp-pad.duplicate .fp-pad-title{color:#991b1b}
+  .fp-pad-sub{font-size:.7rem;color:#64748b;max-width:130px;line-height:1.35}
+  .fp-pad.duplicate .fp-pad-sub{color:#b91c1c;max-width:150px}
+  @keyframes fpPulse{0%,100%{box-shadow:0 0 0 3px rgba(224,18,36,.10)}50%{box-shadow:0 0 0 6px rgba(224,18,36,.18)}}
+  .fp-template-input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em;font-size:.78rem!important}
+  .fp-primary-cell .form-check-input{margin:0}
   .idprev-wrap{position:sticky;top:1.25rem}
-  .idprev-card{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:1rem;margin-bottom:1rem}
-  .idprev-hdr{display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:700;color:#0f172a;margin-bottom:.75rem}
+  .idprev-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+  .idprev-hdr{display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:700;color:#0f172a;margin-bottom:.85rem}
   .idprev-hdr i{color:#f97316}
-  .idc-print{margin-top:.75rem;padding-top:.75rem;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:.5rem}
+  /* Render the official card at standard width, then scale to the sidebar so
+     text alignment matches /beneficiaries/<id>/id-card/ (cqw + browser min-font). */
+  .idprev-frame{position:relative;width:100%;overflow:hidden;border-radius:10px;background:#f8fafc}
+  .idprev-frame .ecard{width:720px;max-width:none;transform-origin:top left;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14)}
+  .idprev-frame .ecard .gov p,
+  .idprev-frame .ecard .gov h1,
+  .idprev-frame .ecard .frow .lbl,
+  .idprev-frame .ecard .frow .val,
+  .idprev-frame .ecard .idno .k,
+  .idprev-frame .ecard .idno .v,
+  .idprev-frame .ecard .title .e,
+  .idprev-frame .ecard .title .b,
+  .idprev-frame .ecard .title .id,
+  .idprev-frame .ecard .sign .line,
+  .idprev-frame .ecard .photo .cap,
+  .idprev-frame .ecard .photo .ph-note{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  .idc-print{margin-top:.85rem;padding-top:.85rem;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:.5rem}
   .idc-size{display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;font-weight:600;color:#334155}
   .side-panel .panel-box{margin-bottom:1rem}
   @media print{
@@ -70,9 +139,10 @@
     .main{margin:0!important;padding:0!important}
     .form-grid{display:block!important}
     .idprev-wrap{position:static!important}
-    .idprev-card{border:0!important;padding:0!important;background:transparent!important}
+    .idprev-card{border:0!important;padding:0!important;background:transparent!important;box-shadow:none!important}
+    .idprev-frame{overflow:visible!important;height:auto!important;background:transparent!important;border-radius:0!important}
     .ecard,.ecard *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-    .ecard{box-shadow:none;border-radius:0;width:var(--print-w,85.6mm);height:auto;break-inside:avoid}
+    .idprev-frame .ecard,.ecard{box-shadow:none!important;border-radius:0!important;width:var(--print-w,85.6mm)!important;height:auto!important;transform:none!important;break-inside:avoid}
   }
 </style>
 {% endblock %}
@@ -230,18 +300,24 @@
       </div>
 
       <!-- Family Composition -->
-      <div class="panel-box">
-        <div class="panel-box-title">Family Composition</div>
+      <div class="panel-box panel-box-family">
+        <div class="panel-box-title">
+          <span class="panel-title-text">Family Composition</span>
+          <button type="button" id="addMemberBtn" class="btn btn-outline-primary btn-sm btn-add-row">
+            <i class="bi bi-plus-lg"></i> Add
+          </button>
+        </div>
         <div class="panel-box-body">
+          <p class="panel-hint">Search the registry to link household members, or type a name if they are not registered yet.</p>
           {{ formset.management_form }}
           <div class="table-responsive">
             <table class="table table-sm table-bordered family-table align-middle" id="family-table">
               <thead>
                 <tr>
-                  <th style="width:28%">Citizen</th>
-                  <th style="width:28%">Full Name</th>
-                  <th style="width:28%">Relationship to HH</th>
-                  <th style="width:16%">Remove</th>
+                  <th style="min-width:240px">Citizen</th>
+                  <th>Full Name</th>
+                  <th>Relationship</th>
+                  <th class="row-actions" aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody id="family-members-wrapper">
@@ -249,67 +325,65 @@
                 <tr class="family-member-row">
                   <td>
                     {% for hidden in member_form.hidden_fields %}{{ hidden }}{% endfor %}
-                    {{ member_form.member }}
+                    <div class="family-member-picker">
+                      <input type="search" class="form-control form-control-sm family-member-search"
+                             placeholder="Type name or Citizen ID…" autocomplete="off" spellcheck="false">
+                      {{ member_form.member }}
+                      <div class="family-selected-label{% if member_form.instance.member_id %} show{% endif %}">
+                        {% if member_form.instance.member_id %}
+                          {{ member_form.instance.member.registry_no|default:"—" }} — {{ member_form.instance.member.last_name }}, {{ member_form.instance.member.first_name }}
+                        {% endif %}
+                      </div>
+                    </div>
                     {% if member_form.member.errors %}<div class="text-danger small">{{ member_form.member.errors.0 }}</div>{% endif %}
                   </td>
                   <td>{{ member_form.full_name }}</td>
                   <td>{{ member_form.relationship }}</td>
-                  <td class="text-center">
-                    {% if member_form.instance.pk %}
-                    <div class="form-check d-inline-flex align-items-center gap-1 justify-content-center mb-0">
-                      {{ member_form.DELETE }}
-                      <label class="form-check-label text-danger small" for="{{ member_form.DELETE.id_for_label }}">Remove</label>
-                    </div>
-                    {% else %}
-                    <span class="text-muted small">—</span>
-                    {% endif %}
+                  <td class="row-actions">
+                    <button type="button" class="row-remove-btn family-remove-btn" title="Remove member" aria-label="Remove member">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                    <div class="d-none">{{ member_form.DELETE }}</div>
                   </td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          <button type="button" id="addMemberBtn" class="btn btn-outline-primary btn-sm mt-2">
-            <i class="bi bi-person-plus"></i> Add Member
-          </button>
         </div>
       </div>
 
       <!-- Fingerprint Registration -->
       <div class="panel-box">
         <div class="panel-box-title">
-          <i class="bi bi-fingerprint me-1"></i> Fingerprint Scanner Registration
+          <span class="panel-title-text"><i class="bi bi-fingerprint"></i> Fingerprints</span>
+          <button type="button" class="btn btn-outline-primary btn-sm btn-add-row" id="addFpBtn">
+            <i class="bi bi-plus-lg"></i> Add finger
+          </button>
         </div>
         <div class="panel-box-body">
           {{ fingerprint_formset.management_form }}
           {% if fingerprint_formset.non_form_errors %}
-          <div class="alert alert-danger py-2">{{ fingerprint_formset.non_form_errors }}</div>
+          <div class="alert alert-danger py-2 mb-3">{{ fingerprint_formset.non_form_errors }}</div>
           {% endif %}
 
           <div class="fp-station">
             <div class="fp-pad" id="fpPad">
               <div class="fp-pad-icon"><i class="bi bi-fingerprint" id="fpPadIcon"></i></div>
               <div class="fp-pad-title" id="fpPadTitle">Ready to scan</div>
-              <div class="fp-pad-sub" id="fpPadSub">Click <strong>Scan Finger</strong>, then place the finger on your fingerprint scanner.</div>
+              <div class="fp-pad-sub" id="fpPadSub">Select a finger, then scan.</div>
             </div>
             <div>
-              <p class="fp-hint mb-2 mt-0">
-                Uses the <strong>Free Fingerprint Verification SDK (Nffv)</strong> bridge on port 8765.
-                Start <code>fingerprint_bridge/app.py</code>, choose a finger, click <strong>Scan Finger</strong>,
-                place the finger on a supported USB scanner, then click <strong>Save</strong>.
-              </p>
-              <div class="d-flex flex-wrap gap-2 mb-2">
+              <p class="panel-hint mb-2">All 10 fingers are listed. Scan any finger — if that print already exists in the database, it is rejected.</p>
+              <div class="fp-toolbar mb-0">
                 <button type="button" class="btn btn-primary btn-sm" id="fpScanBtn">
-                  <i class="bi bi-fingerprint"></i> Scan Finger
+                  <i class="bi bi-fingerprint"></i> Scan
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="fpClearActiveBtn">
-                  <i class="bi bi-eraser"></i> Clear Scan
+                  <i class="bi bi-eraser"></i> Clear
                 </button>
-                <button type="button" class="btn btn-outline-primary btn-sm" id="addFpBtn">
-                  <i class="bi bi-plus-lg"></i> Add Another Finger
-                </button>
+                <span class="fp-active-label" id="fpActiveLabel">No finger selected</span>
               </div>
-              <div class="small text-muted" id="fpActiveLabel">Active row: first finger slot</div>
             </div>
           </div>
 
@@ -317,20 +391,20 @@
             <table class="table table-sm table-bordered fp-table align-middle" id="fp-table">
               <thead>
                 <tr>
-                  <th style="width:4%"></th>
-                  <th style="width:16%">Finger</th>
-                  <th style="width:40%">Scanner Template / ID</th>
+                  <th style="width:36px" title="Active for scan"></th>
+                  <th style="width:18%">Finger</th>
+                  <th>Scan</th>
                   <th style="width:12%">Quality</th>
                   <th style="width:16%">Device</th>
-                  <th style="width:6%">Primary</th>
-                  <th style="width:6%">Remove</th>
+                  <th style="width:56px">Primary</th>
+                  <th class="row-actions" aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody id="fp-rows">
                 {% for fp_form in fingerprint_formset %}
                 <tr class="fp-row{% if forloop.first %} fp-row-active{% endif %}">
                   <td class="text-center">
-                    <input type="radio" name="fp_active_row" class="fp-active-radio form-check-input" {% if forloop.first %}checked{% endif %} title="Scan into this row">
+                    <input type="radio" name="fp_active_row" class="fp-active-radio form-check-input" {% if forloop.first %}checked{% endif %} title="Scan into this row" aria-label="Select row for scan">
                   </td>
                   <td>
                     {% for hidden in fp_form.hidden_fields %}{{ hidden }}{% endfor %}
@@ -350,9 +424,9 @@
                         {{ fp_form.template_data }}
                         <div class="fp-status {% if fp_form.instance.template_data or fp_form.instance.image_data %}ok{% else %}wait{% endif %}">
                           {% if fp_form.instance.template_data or fp_form.instance.image_data %}
-                          Saved — will keep on Save
+                          Saved
                           {% else %}
-                          Waiting for scanner…
+                          Waiting…
                           {% endif %}
                         </div>
                         {% if fp_form.template_data.errors %}<div class="text-danger small">{{ fp_form.template_data.errors.0 }}</div>{% endif %}
@@ -361,16 +435,12 @@
                   </td>
                   <td>{{ fp_form.quality }}</td>
                   <td>{{ fp_form.device_name }}</td>
-                  <td class="text-center">{{ fp_form.is_primary }}</td>
-                  <td class="text-center">
-                    {% if fp_form.instance.pk %}
-                    <div class="form-check d-inline-flex align-items-center gap-1 justify-content-center mb-0">
-                      {{ fp_form.DELETE }}
-                      <label class="form-check-label text-danger small" for="{{ fp_form.DELETE.id_for_label }}">Remove</label>
-                    </div>
-                    {% else %}
-                    <span class="text-muted small">—</span>
-                    {% endif %}
+                  <td class="text-center fp-primary-cell">{{ fp_form.is_primary }}</td>
+                  <td class="row-actions">
+                    <button type="button" class="row-remove-btn fp-remove-btn" title="Remove fingerprint" aria-label="Remove fingerprint">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                    <div class="d-none">{{ fp_form.DELETE }}</div>
                   </td>
                 </tr>
                 {% endfor %}
@@ -476,7 +546,9 @@
     <aside class="idprev-wrap">
       <div class="idprev-card">
         <div class="idprev-hdr"><i class="bi bi-person-vcard-fill"></i> e-Bahagi ID Preview</div>
-        {% include "beneficiaries/_id_card.html" with card=card %}
+        <div class="idprev-frame" id="idprevFrame">
+          {% include "beneficiaries/_id_card.html" with card=card %}
+        </div>
         <div class="idc-print">
           <label class="idc-size">
             <span><i class="bi bi-aspect-ratio"></i> Print size</span>
@@ -499,7 +571,7 @@
         <p class="text-muted mt-2 mb-0 idc-note" style="font-size:.72rem">
           <i class="bi bi-info-circle"></i>
           {% if citizen %}ID No. <code>{{ citizen.registry_no }}</code>.{% else %}ID &amp; QR generated after save.{% endif %}
-          Enable <strong>Background graphics</strong> when printing.
+          Same layout as the official print card.
         </p>
       </div>
 
@@ -533,14 +605,26 @@
 {% block extra_js %}
 <script>
 (function () {
-  var RATIO = 1123 / 2000;
-  var card = document.querySelector('.ecard');
+  var DESIGN_W = 720;
+  var frame = document.getElementById('idprevFrame');
+  var card = frame ? frame.querySelector('.ecard') : document.querySelector('.ecard');
   var sel = document.getElementById('print-size');
   var btn = document.getElementById('print-btn');
   var btn2 = document.getElementById('print-btn-bottom');
   if (!card || !sel) return;
+  var RATIO = 1123 / 2000;
   var pageStyle = document.createElement('style');
   document.head.appendChild(pageStyle);
+
+  function fitPreview() {
+    if (!frame || !card) return;
+    var avail = frame.clientWidth || DESIGN_W;
+    var scale = Math.min(1, avail / DESIGN_W);
+    card.style.width = DESIGN_W + 'px';
+    card.style.transform = 'scale(' + scale + ')';
+    frame.style.height = Math.ceil(DESIGN_W * RATIO * scale) + 'px';
+  }
+
   function apply() {
     var w = parseFloat(sel.value);
     var h = Math.ceil(w * RATIO * 10) / 10;
@@ -552,6 +636,11 @@
   if (btn) btn.addEventListener('click', doPrint);
   if (btn2) btn2.addEventListener('click', doPrint);
   apply();
+  fitPreview();
+  window.addEventListener('resize', fitPreview);
+  if (window.ResizeObserver) {
+    new ResizeObserver(fitPreview).observe(frame || card.parentElement);
+  }
 })();
 </script>
 <script>
@@ -588,11 +677,267 @@
   var addBtn = document.getElementById('addMemberBtn');
   var totalFld = document.getElementById('id_family-TOTAL_FORMS');
   if (!wrapper || !addBtn || !totalFld) return;
+
+  var SEARCH_URL = "{{ citizen_search_url|default:''|escapejs }}";
+  var EXCLUDE_PK = "{{ exclude_citizen_pk|default:''|escapejs }}";
+  var clientCache = Object.create(null);
+  var activePicker = null;
+  var resultsBox = document.createElement('div');
+  resultsBox.id = 'familySearchResultsGlobal';
+  resultsBox.className = 'family-search-results';
+  resultsBox.setAttribute('role', 'listbox');
+  document.body.appendChild(resultsBox);
+
+  function renumberFamily() {
+    var rows = wrapper.querySelectorAll('.family-member-row');
+    rows.forEach(function (row, idx) {
+      row.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+        ['name', 'id', 'for'].forEach(function (attr) {
+          var v = el.getAttribute(attr);
+          if (v) el.setAttribute(attr, v.replace(/-\d+-/, '-' + idx + '-'));
+        });
+      });
+    });
+    totalFld.value = rows.length;
+  }
+
+  function closeResults() {
+    resultsBox.classList.remove('open');
+    resultsBox.innerHTML = '';
+    resultsBox.style.left = '';
+    resultsBox.style.top = '';
+    resultsBox.style.width = '';
+    activePicker = null;
+  }
+
+  function positionResults(input) {
+    if (!input) return;
+    var rect = input.getBoundingClientRect();
+    var width = Math.max(rect.width, 300);
+    var top = rect.bottom + 4;
+    var maxH = Math.min(280, Math.max(140, window.innerHeight - top - 12));
+    if (window.innerHeight - top < 140 && rect.top > 180) {
+      top = Math.max(8, rect.top - maxH - 4);
+    }
+    resultsBox.style.left = rect.left + 'px';
+    resultsBox.style.top = top + 'px';
+    resultsBox.style.width = width + 'px';
+    resultsBox.style.maxHeight = maxH + 'px';
+  }
+
+  function initials(name) {
+    var parts = (name || '').replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
+    return ((parts[0] || '?').charAt(0) + (parts[1] || '?').charAt(0)).toUpperCase();
+  }
+
+  function setMember(row, item) {
+    var sel = row.querySelector('select.family-member-select, select[name$="-member"]');
+    var nameInput = row.querySelector('input[name$="-full_name"]');
+    var label = row.querySelector('.family-selected-label');
+    var search = row.querySelector('.family-member-search');
+    if (!sel) return;
+
+    while (sel.options.length > 1) sel.remove(1);
+    var opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = item.label;
+    opt.selected = true;
+    sel.appendChild(opt);
+    sel.value = String(item.id);
+
+    if (nameInput) nameInput.value = item.full_name || item.name || '';
+    if (label) {
+      label.textContent = item.label;
+      label.classList.add('show');
+    }
+    if (search) {
+      search.value = '';
+      search.placeholder = 'Search to change…';
+    }
+    closeResults();
+  }
+
+  function clearMember(row) {
+    var sel = row.querySelector('select.family-member-select, select[name$="-member"]');
+    var label = row.querySelector('.family-selected-label');
+    var search = row.querySelector('.family-member-search');
+    if (sel) {
+      while (sel.options.length > 1) sel.remove(1);
+      sel.selectedIndex = 0;
+      sel.value = '';
+    }
+    if (label) {
+      label.textContent = '';
+      label.classList.remove('show');
+    }
+    if (search) {
+      search.value = '';
+      search.placeholder = 'Type name or Citizen ID…';
+    }
+  }
+
+  function renderResults(items, query, row, input) {
+    resultsBox.innerHTML = '';
+    activePicker = { row: row, input: input, items: items, idx: -1 };
+    if (!items.length) {
+      resultsBox.innerHTML = '<div class="family-search-empty">No citizens match “' +
+        query.replace(/[<>&]/g, '') + '”.</div>';
+      resultsBox.classList.add('open');
+      positionResults(input);
+      return;
+    }
+    items.forEach(function (item, idx) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'family-search-item';
+      btn.innerHTML =
+        '<div class="fsr-av"></div><div class="fsr-body"><div class="fsr-name"></div><div class="fsr-meta"></div></div><div class="fsr-id"></div>';
+      btn.querySelector('.fsr-av').textContent = initials(item.name);
+      btn.querySelector('.fsr-name').textContent = item.name;
+      btn.querySelector('.fsr-meta').textContent =
+        (item.sex ? item.sex + ' · ' : '') + (item.barangay || 'No barangay');
+      btn.querySelector('.fsr-id').textContent = item.registry_no || ('#' + item.id);
+      btn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        setMember(row, item);
+      });
+      btn.addEventListener('mouseenter', function () {
+        Array.prototype.forEach.call(resultsBox.querySelectorAll('.family-search-item'), function (el) {
+          el.classList.remove('active');
+        });
+        btn.classList.add('active');
+        if (activePicker) activePicker.idx = idx;
+      });
+      resultsBox.appendChild(btn);
+    });
+    resultsBox.classList.add('open');
+    positionResults(input);
+  }
+
+  function runSearch(q, row, input) {
+    if (!SEARCH_URL || q.length < 2) {
+      closeResults();
+      return;
+    }
+    var key = q.toLowerCase() + ':' + (EXCLUDE_PK || '');
+    if (clientCache[key]) {
+      renderResults(clientCache[key], q, row, input);
+      return;
+    }
+    var url = SEARCH_URL + '?q=' + encodeURIComponent(q);
+    if (EXCLUDE_PK) url += '&exclude=' + encodeURIComponent(EXCLUDE_PK);
+    fetch(url, { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (document.activeElement !== input) return;
+        var items = (data && data.ok && data.results) ? data.results : [];
+        clientCache[key] = items;
+        renderResults(items, q, row, input);
+      })
+      .catch(function () { closeResults(); });
+  }
+
+  function bindFamilySearch(row) {
+    var input = row.querySelector('.family-member-search');
+    if (!input || input.dataset.boundSearch === '1') return;
+    input.dataset.boundSearch = '1';
+    var timer = null;
+
+    // Prefill placeholder from existing select option.
+    var sel = row.querySelector('select[name$="-member"]');
+    if (sel && sel.value && sel.selectedOptions && sel.selectedOptions[0]) {
+      input.placeholder = 'Search to change…';
+      var label = row.querySelector('.family-selected-label');
+      if (label && !label.textContent.trim()) {
+        label.textContent = sel.selectedOptions[0].text;
+        label.classList.add('show');
+      }
+    }
+
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      var q = (input.value || '').trim();
+      timer = setTimeout(function () { runSearch(q, row, input); }, 180);
+    });
+    input.addEventListener('focus', function () {
+      var q = (input.value || '').trim();
+      if (q.length >= 2) runSearch(q, row, input);
+    });
+    input.addEventListener('keydown', function (e) {
+      if (!resultsBox.classList.contains('open') || !activePicker) {
+        if (e.key === 'Escape') input.blur();
+        return;
+      }
+      var items = resultsBox.querySelectorAll('.family-search-item');
+      if (!items.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activePicker.idx = Math.min(items.length - 1, activePicker.idx + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activePicker.idx = Math.max(0, activePicker.idx < 0 ? 0 : activePicker.idx - 1);
+      } else if (e.key === 'Enter' && activePicker.idx >= 0) {
+        e.preventDefault();
+        items[activePicker.idx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        return;
+      } else if (e.key === 'Escape') {
+        closeResults();
+        return;
+      } else {
+        return;
+      }
+      Array.prototype.forEach.call(items, function (el, i) {
+        el.classList.toggle('active', i === activePicker.idx);
+        if (i === activePicker.idx) el.scrollIntoView({ block: 'nearest' });
+      });
+    });
+    input.addEventListener('blur', function () {
+      setTimeout(closeResults, 150);
+    });
+  }
+
+  function bindFamilyRemove(row) {
+    var btn = row.querySelector('.family-remove-btn');
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', function () {
+      var idInput = row.querySelector('input[name$="-id"]');
+      var del = row.querySelector('input[name$="-DELETE"]');
+      if (idInput && idInput.value) {
+        if (del) del.checked = true;
+        row.style.display = 'none';
+        closeResults();
+        return;
+      }
+      var visible = wrapper.querySelectorAll('.family-member-row:not([style*="display: none"])');
+      if (visible.length <= 1) {
+        row.querySelectorAll('input:not([type=hidden]):not([type=checkbox]),select').forEach(function (el) {
+          el.value = '';
+        });
+        row.querySelectorAll('input[type=checkbox]').forEach(function (el) {
+          if (el.name && el.name.indexOf('-DELETE') !== -1) return;
+          el.checked = false;
+        });
+        clearMember(row);
+        return;
+      }
+      row.remove();
+      renumberFamily();
+      closeResults();
+    });
+  }
+
+  wrapper.querySelectorAll('.family-member-row').forEach(function (row) {
+    bindFamilyRemove(row);
+    bindFamilySearch(row);
+  });
+
   addBtn.addEventListener('click', function () {
     var idx = parseInt(totalFld.value, 10);
     var tmpl = wrapper.querySelector('.family-member-row');
     if (!tmpl) return;
     var clone = tmpl.cloneNode(true);
+    clone.style.display = '';
     clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
       ['name','id','for'].forEach(function (attr) {
         var v = el.getAttribute(attr);
@@ -603,16 +948,47 @@
       if (el.type === 'checkbox') el.checked = false;
       else el.value = '';
     });
-    var del = clone.querySelector('.form-check');
-    if (del) del.innerHTML = '<span class="text-muted small">—</span>';
+    clone.querySelectorAll('input[type=hidden]').forEach(function (el) {
+      if (el.name && el.name.indexOf('-id') !== -1) el.value = '';
+    });
+    // Reset picker UI on new row.
+    var search = clone.querySelector('.family-member-search');
+    if (search) {
+      search.value = '';
+      search.placeholder = 'Type name or Citizen ID…';
+      delete search.dataset.boundSearch;
+    }
+    var label = clone.querySelector('.family-selected-label');
+    if (label) {
+      label.textContent = '';
+      label.classList.remove('show');
+    }
+    var sel = clone.querySelector('select[name$="-member"]');
+    if (sel) {
+      while (sel.options.length > 1) sel.remove(1);
+      sel.selectedIndex = 0;
+    }
+    var removeBtn = clone.querySelector('.family-remove-btn');
+    if (removeBtn) delete removeBtn.dataset.bound;
     wrapper.appendChild(clone);
     totalFld.value = idx + 1;
+    bindFamilyRemove(clone);
+    bindFamilySearch(clone);
   });
+
+  window.addEventListener('resize', function () {
+    if (activePicker && activePicker.input) positionResults(activePicker.input);
+  });
+  window.addEventListener('scroll', function () {
+    if (activePicker && activePicker.input) positionResults(activePicker.input);
+  }, true);
 })();
 </script>
 <script>
 (function () {
   var FP_BRIDGE = 'http://127.0.0.1:8765';
+  var FP_CHECK_URL = '{% url "core:fingerprint_check" %}';
+  var FP_OWNER_KIND = 'citizen';
   var wrapper = document.getElementById('fp-rows');
   var addBtn = document.getElementById('addFpBtn');
   var totalFld = document.getElementById('id_fp-TOTAL_FORMS');
@@ -627,7 +1003,20 @@
   var scanning = false;
 
   function activeRow() {
-    return wrapper.querySelector('.fp-row-active') || wrapper.querySelector('.fp-row');
+    return wrapper.querySelector('.fp-row-active:not([style*="display: none"])')
+      || Array.prototype.find.call(wrapper.querySelectorAll('.fp-row'), function (r) {
+        return r.style.display !== 'none';
+      });
+  }
+
+  function firstWaitingRow() {
+    return Array.prototype.find.call(wrapper.querySelectorAll('.fp-row'), function (r) {
+      if (r.style.display === 'none') return false;
+      var del = r.querySelector('input[name$="-DELETE"]');
+      if (del && del.checked) return false;
+      var input = r.querySelector('.fp-template-input');
+      return !input || !input.value.trim();
+    });
   }
 
   function setActive(row) {
@@ -644,15 +1033,93 @@
     var fingerTxt = fingerSel && fingerSel.value
       ? fingerSel.options[fingerSel.selectedIndex].text
       : 'select a finger';
-    if (activeLabel) activeLabel.textContent = 'Active row: ' + fingerTxt;
+    if (activeLabel) activeLabel.textContent = fingerTxt === 'select a finger' ? 'Select a finger' : 'Scanning: ' + fingerTxt;
   }
 
   function setPad(state, title, sub) {
     if (!pad) return;
-    pad.classList.remove('listening', 'captured');
+    pad.classList.remove('listening', 'captured', 'duplicate');
     if (state) pad.classList.add(state);
     if (padTitle && title) padTitle.textContent = title;
     if (padSub && sub) padSub.innerHTML = sub;
+  }
+
+  function csrfToken() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  function hammingHex(a, b) {
+    a = (a || '').trim().toLowerCase();
+    b = (b || '').trim().toLowerCase();
+    if (!a || !b || a.length !== b.length) return 999;
+    var nibbleBits = [0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4];
+    var dist = 0;
+    for (var i = 0; i < a.length; i++) {
+      var x = parseInt(a[i], 16) ^ parseInt(b[i], 16);
+      if (isNaN(x)) return 999;
+      dist += nibbleBits[x];
+    }
+    return dist;
+  }
+
+  function rowFingerprintId(row) {
+    var el = row.querySelector('input[name$="-id"]');
+    return el && el.value ? el.value : '';
+  }
+
+  function formDuplicate(row, template) {
+    var rows = wrapper.querySelectorAll('.fp-row');
+    for (var i = 0; i < rows.length; i++) {
+      var other = rows[i];
+      if (other === row || other.style.display === 'none') continue;
+      var del = other.querySelector('input[name$="-DELETE"]');
+      if (del && del.checked) continue;
+      var input = other.querySelector('.fp-template-input');
+      var otherTpl = input ? input.value.trim() : '';
+      if (!otherTpl) continue;
+      if (hammingHex(template, otherTpl) <= 10) {
+        var fingerSel = other.querySelector('select[name$="-finger"]');
+        var fingerTxt = fingerSel && fingerSel.value
+          ? fingerSel.options[fingerSel.selectedIndex].text
+          : 'another finger';
+        return 'This fingerprint matches ' + fingerTxt + ' on this form. Each finger must be unique.';
+      }
+    }
+    return '';
+  }
+
+  async function checkFingerprintUnique(template, excludeId) {
+    var body = { template_data: template };
+    if (FP_OWNER_KIND === 'beneficiary') body.exclude_beneficiary_fp_id = excludeId || null;
+    else body.exclude_citizen_fp_id = excludeId || null;
+    var resp = await fetch(FP_CHECK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    });
+    var data = await resp.json();
+    if (!resp.ok && !data.message && !data.error) {
+      throw new Error('Could not check fingerprint uniqueness.');
+    }
+    return data;
+  }
+
+  function markDuplicate(row, message) {
+    var status = row.querySelector('.fp-status');
+    var input = row.querySelector('.fp-template-input');
+    if (status) {
+      status.textContent = message;
+      status.className = 'fp-status dup';
+    }
+    if (input) input.classList.add('is-invalid');
+    setPad('duplicate', 'Already registered', message);
+    alert(message);
   }
 
   function markCaptured(row, data) {
@@ -663,12 +1130,15 @@
     var device = row.querySelector('.fp-device-input');
     var quality = row.querySelector('input[name$="-quality"]');
     var template = data.template_data || data.fp_hash || '';
-    if (input) input.value = template;
+    if (input) {
+      input.value = template;
+      input.classList.remove('is-invalid');
+    }
     if (image && data.image_data) image.value = data.image_data;
-    if (device) device.value = data.device_name || 'Hikvision DS-K1F820-F';
+    if (device) device.value = data.device_name || 'Fingerprint Scanner';
     if (quality && data.quality != null && data.quality !== '') quality.value = data.quality;
     if (status) {
-      status.textContent = 'Captured from DS-K1F820-F — click Save to store';
+      status.textContent = 'Captured — click Save';
       status.className = 'fp-status ok';
     }
     if (preview) {
@@ -681,8 +1151,8 @@
     }
     setPad(
       'captured',
-      'Fingerprint captured',
-      'DS-K1F820-F scan saved in the form. Click <strong>Save</strong> to store it with this citizen.'
+      'Scan captured',
+      'Click <strong>Save</strong> to store this fingerprint.'
     );
   }
 
@@ -693,7 +1163,7 @@
     var preview = row.querySelector('.fp-preview');
     var has = !!(input && input.value.trim());
     if (status) {
-      status.textContent = has ? 'Captured — click Save to store' : 'Waiting for DS-K1F820-F…';
+      status.textContent = has ? 'Captured — click Save' : 'Waiting…';
       status.className = 'fp-status ' + (has ? 'ok' : 'wait');
     }
     if (preview) {
@@ -726,7 +1196,7 @@
     var fingerSel = row.querySelector('select[name$="-finger"]');
     if (fingerSel && !fingerSel.value) {
       fingerSel.focus();
-      setPad('listening', 'Select a finger first', 'Choose which finger you are scanning on the DS-K1F820-F.');
+      setPad('listening', 'Select a finger first', 'Choose which finger to scan.');
       return;
     }
 
@@ -735,10 +1205,10 @@
       scanBtn.disabled = true;
       scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning…';
     }
-    setPad('listening', 'Waiting for DS-K1F820-F…', 'Place the finger firmly on the fingerprint recorder now.');
+    setPad('listening', 'Waiting for scanner…', 'Place the finger firmly on the scanner.');
     var status = row.querySelector('.fp-status');
     if (status) {
-      status.textContent = 'Talking to DS-K1F820-F bridge…';
+      status.textContent = 'Connecting…';
       status.className = 'fp-status listening';
     }
 
@@ -765,6 +1235,41 @@
         alert(data.error || 'Fingerprint capture failed');
         return;
       }
+
+      var template = data.template_data || data.fp_hash || '';
+      if (status) {
+        status.textContent = 'Checking database…';
+        status.className = 'fp-status listening';
+      }
+      setPad('listening', 'Checking database…', 'Looking for an existing match.');
+
+      var formDup = formDuplicate(row, template);
+      if (formDup) {
+        markDuplicate(row, formDup);
+        return;
+      }
+
+      var uniq;
+      try {
+        uniq = await checkFingerprintUnique(template, rowFingerprintId(row));
+      } catch (checkErr) {
+        markDuplicate(
+          row,
+          checkErr.message || 'Could not check whether this fingerprint is already registered.'
+        );
+        return;
+      }
+      if (uniq && uniq.unique === false) {
+        markDuplicate(
+          row,
+          uniq.message || ('This fingerprint is already registered to ' + uniq.owner + '.')
+        );
+        return;
+      }
+      if (uniq && uniq.ok === false) {
+        markDuplicate(row, uniq.error || 'Could not check uniqueness.');
+        return;
+      }
       markCaptured(row, data);
     } catch (err) {
       setPad('', 'Bridge error', err.message || 'Could not reach fingerprint bridge');
@@ -773,7 +1278,7 @@
       scanning = false;
       if (scanBtn) {
         scanBtn.disabled = false;
-        scanBtn.innerHTML = '<i class="bi bi-fingerprint"></i> Scan Finger';
+        scanBtn.innerHTML = '<i class="bi bi-fingerprint"></i> Scan';
       }
     }
   }
@@ -789,11 +1294,82 @@
       if (e.target && e.target.closest('button, a, label')) return;
       setActive(row);
     });
+    bindFpRemove(row);
     refreshRow(row);
   }
 
+  function renumberFp() {
+    var rows = wrapper.querySelectorAll('.fp-row');
+    rows.forEach(function (row, idx) {
+      row.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+        ['name', 'id', 'for'].forEach(function (attr) {
+          var v = el.getAttribute(attr);
+          if (!v) return;
+          if (attr === 'name' && v === 'fp_active_row') return;
+          el.setAttribute(attr, v.replace(/-\d+-/, '-' + idx + '-'));
+        });
+      });
+    });
+    totalFld.value = rows.length;
+  }
+
+  function clearFpRow(row) {
+    row.querySelectorAll('input:not([type=hidden]):not(.fp-active-radio),select').forEach(function (el) {
+      if (el.type === 'checkbox') el.checked = false;
+      else el.value = '';
+    });
+    row.querySelectorAll('input[type=hidden]').forEach(function (el) {
+      if (el.name && el.name.indexOf('-id') !== -1) el.value = '';
+      if (el.classList.contains('fp-image-input') || el.classList.contains('fp-template-input')) el.value = '';
+    });
+    var preview = row.querySelector('.fp-preview');
+    if (preview) {
+      preview.className = 'fp-preview';
+      preview.innerHTML = '<i class="bi bi-fingerprint"></i>';
+    }
+    var status = row.querySelector('.fp-status');
+    if (status) {
+      status.textContent = 'Waiting for scanner…';
+      status.className = 'fp-status wait';
+    }
+    refreshRow(row);
+  }
+
+  function bindFpRemove(row) {
+    var btn = row.querySelector('.fp-remove-btn');
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var idInput = row.querySelector('input[name$="-id"]');
+      var del = row.querySelector('input[name$="-DELETE"]');
+      if (idInput && idInput.value) {
+        if (del) del.checked = true;
+        row.style.display = 'none';
+        if (row.classList.contains('fp-row-active')) {
+          var next = wrapper.querySelector('.fp-row:not([style*="display: none"])');
+          if (next) setActive(next);
+        }
+        return;
+      }
+      var visible = Array.prototype.filter.call(
+        wrapper.querySelectorAll('.fp-row'),
+        function (r) { return r.style.display !== 'none'; }
+      );
+      if (visible.length <= 1) {
+        clearFpRow(row);
+        setActive(row);
+        return;
+      }
+      var wasActive = row.classList.contains('fp-row-active');
+      row.remove();
+      renumberFp();
+      if (wasActive) setActive(activeRow());
+    });
+  }
+
   wrapper.querySelectorAll('.fp-row').forEach(bindRow);
-  setActive(activeRow());
+  setActive(firstWaitingRow() || activeRow());
 
   if (scanBtn) {
     scanBtn.addEventListener('click', function () {
@@ -807,7 +1383,10 @@
       var input = row.querySelector('.fp-template-input');
       var image = row.querySelector('.fp-image-input');
       var quality = row.querySelector('input[name$="-quality"]');
-      if (input) input.value = '';
+      if (input) {
+        input.value = '';
+        input.classList.remove('is-invalid');
+      }
       if (image) image.value = '';
       if (quality) quality.value = '';
       var preview = row.querySelector('.fp-preview');
@@ -816,7 +1395,7 @@
         preview.innerHTML = '<i class="bi bi-fingerprint"></i>';
       }
       refreshRow(row);
-      setPad('', 'Ready to scan', 'Click <strong>Scan Finger</strong>, then place the finger on the DS-K1F820-F.');
+      setPad('', 'Ready to scan', 'Select a finger, then click Scan.');
     });
   }
 
@@ -825,6 +1404,7 @@
     var tmpl = wrapper.querySelector('.fp-row');
     if (!tmpl) return;
     var clone = tmpl.cloneNode(true);
+    clone.style.display = '';
     clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
       ['name','id','for'].forEach(function (attr) {
         var v = el.getAttribute(attr);
@@ -848,11 +1428,11 @@
     }
     var status = clone.querySelector('.fp-status');
     if (status) {
-      status.textContent = 'Waiting for DS-K1F820-F…';
+      status.textContent = 'Waiting…';
       status.className = 'fp-status wait';
     }
-    var del = clone.querySelector('.form-check');
-    if (del) del.innerHTML = '<span class="text-muted small">—</span>';
+    var removeBtn = clone.querySelector('.fp-remove-btn');
+    if (removeBtn) delete removeBtn.dataset.bound;
     var radio = clone.querySelector('.fp-active-radio');
     if (radio) radio.checked = false;
     wrapper.appendChild(clone);
@@ -864,9 +1444,9 @@
   // Show bridge status on load
   checkBridge().then(function (st) {
     if (st.ok) {
-      setPad('', 'DS-K1F820-F ready', 'Click <strong>Scan Finger</strong>, then place the finger on the recorder.');
+      setPad('', 'Ready to scan', 'Select a finger, then click Scan.');
     } else {
-      setPad('', 'Bridge offline', st.error || 'Start fingerprint_bridge/app.py on port 8765');
+      setPad('', 'Scanner offline', st.error || 'Start the fingerprint bridge to continue.');
     }
   });
 })();

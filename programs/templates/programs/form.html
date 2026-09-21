@@ -8,32 +8,32 @@
 <style>
   /* ── Override flatpickr theme to match app palette ── */
   .flatpickr-calendar { font-family: system-ui,-apple-system,sans-serif; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
-  .flatpickr-months { background: #2563eb; border-radius: 12px 12px 0 0; padding: .4rem 0; }
+  .flatpickr-months { background: #E01224; border-radius: 12px 12px 0 0; padding: .4rem 0; }
   .flatpickr-months .flatpickr-month { color: #fff; fill: #fff; }
   .flatpickr-current-month { color: #fff; font-size: .95rem; }
-  .flatpickr-current-month .flatpickr-monthDropdown-months { background: #2563eb; color: #fff; border: none; font-weight: 700; }
+  .flatpickr-current-month .flatpickr-monthDropdown-months { background: #E01224; color: #fff; border: none; font-weight: 700; }
   .flatpickr-current-month input.cur-year { color: #fff; font-weight: 700; }
   .flatpickr-prev-month, .flatpickr-next-month { color: #fff !important; fill: #fff !important; }
-  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #bfdbfe !important; }
+  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #F5A8AE !important; }
   .flatpickr-weekday { color: #64748b !important; font-weight: 700 !important; font-size: .72rem !important; }
   .flatpickr-day { border-radius: 8px !important; font-size: .82rem; color: #1e293b; }
-  .flatpickr-day:hover { background: #eff6ff; border-color: #eff6ff; }
-  .flatpickr-day.selected, .flatpickr-day.selected:hover { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; font-weight: 700; }
-  .flatpickr-day.today { border-color: #3b82f6 !important; color: #2563eb !important; font-weight: 700; }
-  .flatpickr-day.today:hover { background: #eff6ff !important; }
+  .flatpickr-day:hover { background: #FEECEF; border-color: #FEECEF; }
+  .flatpickr-day.selected, .flatpickr-day.selected:hover { background: #E01224 !important; border-color: #E01224 !important; color: #fff !important; font-weight: 700; }
+  .flatpickr-day.today { border-color: #E01224 !important; color: #E01224 !important; font-weight: 700; }
+  .flatpickr-day.today:hover { background: #FEECEF !important; }
   .flatpickr-day.today.selected { color: #fff !important; }
-  .flatpickr-day.inRange { background: #eff6ff !important; border-color: #eff6ff !important; }
+  .flatpickr-day.inRange { background: #FEECEF !important; border-color: #FEECEF !important; }
   .flatpickr-day.disabled { color: #cbd5e1 !important; }
   .flatpickr-innerContainer { padding: .25rem .5rem .5rem; }
   /* Input wrapper with calendar icon trigger */
   .date-input-wrap { position: relative; }
   .date-input-wrap .form-control { padding-right: 2.6rem; cursor: pointer; background: #fff; }
   .date-input-wrap .date-icon-btn { position: absolute; right: 0; top: 0; height: 100%; width: 2.5rem; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; background: transparent; border: none; border-left: 1px solid #e2e8f0; border-radius: 0 8px 8px 0; transition: background .15s, color .15s; }
-  .date-input-wrap .date-icon-btn:hover { background: #eff6ff; color: #2563eb; }
+  .date-input-wrap .date-icon-btn:hover { background: #FEECEF; color: #E01224; }
   /* date quick-action bar inside calendar */
   .fp-quick-bar { display: flex; gap: .4rem; padding: .4rem .6rem .6rem; border-top: 1px solid #f1f5f9; }
   .fp-quick-bar button { flex: 1; font-size: .72rem; font-weight: 600; padding: .3rem 0; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: background .15s; }
-  .fp-quick-bar button:hover { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+  .fp-quick-bar button:hover { background: #FEECEF; color: #E01224; border-color: #F5A8AE; }
   .fp-quick-bar button.fp-clear { border-color: #fecaca; color: #dc2626; }
   .fp-quick-bar button.fp-clear:hover { background: #fef2f2; }
 </style>
@@ -42,13 +42,13 @@
 {% block content %}
 <style>
   .prog-breadcrumb { font-size: .78rem; color: #64748b; margin-bottom: .35rem; }
-  .prog-breadcrumb a { color: #3b82f6; text-decoration: none; }
+  .prog-breadcrumb a { color: #E01224; text-decoration: none; }
   .prog-breadcrumb a:hover { text-decoration: underline; }
   .form-grid { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
   @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
   .form-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; }
   .form-card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .75rem; }
-  .form-card-header .hdr-icon { width: 40px; height: 40px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .form-card-header .hdr-icon { width: 40px; height: 40px; border-radius: 10px; background: #FEECEF; color: #E01224; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
   .form-card-header h5 { margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a; }
   .form-card-header p { margin: .1rem 0 0; font-size: .78rem; color: #64748b; }
   .form-card-body { padding: 1.5rem; }
@@ -57,7 +57,7 @@
   .section-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
   .input-group .input-group-text { background: #f8fafc; border-color: #e2e8f0; color: #64748b; font-size: .82rem; font-weight: 600; }
   .form-control, .form-select { border-color: #e2e8f0; font-size: .875rem; border-radius: 8px !important; transition: border-color .2s, box-shadow .2s; }
-  .form-control:focus, .form-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .form-control:focus, .form-select:focus { border-color: #E01224; box-shadow: 0 0 0 3px rgba(224,18,36,.12); }
   .form-control.is-invalid { border-color: #ef4444 !important; }
   .form-control.is-invalid:focus { box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
   .form-label { font-size: .8rem; font-weight: 600; color: #374151; margin-bottom: .35rem; }
@@ -70,13 +70,13 @@
   .form-switch .form-check-input { width: 2.4em; height: 1.3em; cursor: pointer; }
   .form-switch .form-check-input:checked { background-color: #22c55e; border-color: #22c55e; }
   .form-actions { display: flex; gap: .75rem; padding-top: 1.25rem; border-top: 1px solid #f1f5f9; margin-top: 1.5rem; }
-  .btn-save { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 600; font-size: .875rem; padding: .55rem 1.5rem; border-radius: 8px; display: flex; align-items: center; gap: .4rem; transition: background .2s; }
-  .btn-save:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+  .btn-save { background: #E01224; border-color: #E01224; color: #fff; font-weight: 600; font-size: .875rem; padding: .55rem 1.5rem; border-radius: 8px; display: flex; align-items: center; gap: .4rem; transition: background .2s; }
+  .btn-save:hover { background: #B80E1C; border-color: #B80E1C; color: #fff; }
   .btn-cancel { font-size: .875rem; padding: .55rem 1.25rem; border-radius: 8px; color: #64748b; border-color: #e2e8f0; background: #fff; }
   .btn-cancel:hover { background: #f1f5f9; }
   .summary-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); position: sticky; top: 1.5rem; }
   .summary-card-hdr { padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 700; color: #0f172a; }
-  .summary-card-hdr i { color: #3b82f6; }
+  .summary-card-hdr i { color: #E01224; }
   .summary-body { padding: 1rem 1.25rem; }
   .summary-row { display: flex; flex-direction: column; gap: .15rem; padding: .6rem 0; border-bottom: 1px solid #f1f5f9; }
   .summary-row:last-child { border-bottom: none; }

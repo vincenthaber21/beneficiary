@@ -9,7 +9,7 @@ from .backup import BackupError, build_backup_zip, restore_from_upload
 from .models import SystemSetting
 
 DEFAULTS = [
-    ("org_name", "e-BAHAGI Program", "Organization / program name shown in the system"),
+    ("org_name", "Humanitarian Assistance Grant Management", "Shown as the tagline on the login page"),
     ("org_address", "", "Organization address"),
     ("income_threshold", "15000", "Default monthly income threshold (Php) for qualification"),
     ("grant_cooldown_months", "3", "Default months before a beneficiary can receive another grant"),

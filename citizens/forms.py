@@ -128,7 +128,9 @@ class CitizenFamilyMemberForm(forms.ModelForm):
         model = CitizenFamilyMember
         fields = ["member", "full_name", "relationship"]
         widgets = {
-            "member": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "member": forms.Select(attrs={
+                "class": "form-select form-select-sm family-member-select",
+            }),
             "full_name": forms.TextInput(attrs={
                 "class": "form-control form-control-sm",
                 "placeholder": "Full name (if not in registry)",
@@ -138,11 +140,26 @@ class CitizenFamilyMemberForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        qs = Citizen.objects.order_by("last_name", "first_name")
-        if self.instance and self.instance.citizen_id:
-            qs = qs.exclude(pk=self.instance.citizen_id)
-        self.fields["member"].queryset = qs
+        # Do not load 40k+ options — only the currently selected member.
+        selected_pk = None
+        if self.is_bound:
+            raw = self.data.get(self.add_prefix("member"), "")
+            if str(raw).isdigit():
+                selected_pk = int(raw)
+        elif self.instance and self.instance.member_id:
+            selected_pk = self.instance.member_id
+
+        if selected_pk:
+            self.fields["member"].queryset = Citizen.objects.filter(pk=selected_pk)
+        else:
+            self.fields["member"].queryset = Citizen.objects.none()
+
         self.fields["member"].required = False
+        self.fields["member"].empty_label = "— Search citizen —"
+        self.fields["member"].label_from_instance = (
+            lambda obj: f"{obj.registry_no or '—'} — {obj.last_name}, {obj.first_name}"
+            + (f" {obj.middle_name}" if obj.middle_name else "")
+        )
         self.fields["full_name"].required = False
         self.fields["relationship"].required = False
 
@@ -200,22 +217,22 @@ class CitizenFingerprintForm(forms.ModelForm):
         self.fields["device_name"].required = False
 
     def clean(self):
+        from .fingerprint_match import normalize_template
+
         cleaned = super().clean()
         finger = cleaned.get("finger")
-        template = (cleaned.get("template_data") or "").strip()
+        template = normalize_template(cleaned.get("template_data"))
         image = (cleaned.get("image_data") or "").strip()
-        quality = cleaned.get("quality")
         device = (cleaned.get("device_name") or "").strip()
-        is_primary = cleaned.get("is_primary")
-        has_data = bool(template or image or quality is not None or device or is_primary)
 
-        if has_data and not finger:
+        # All 10 fingers are listed. Unused slots have a finger but no scan.
+        if not template and not image:
+            cleaned["template_data"] = template
+            cleaned["image_data"] = image
+            cleaned["device_name"] = device
+            return cleaned
+        if not finger:
             self.add_error("finger", "Select which finger was scanned.")
-        if finger and not template and not image:
-            self.add_error(
-                "template_data",
-                "Scan or enter a fingerprint template / ID for this finger.",
-            )
         cleaned["template_data"] = template
         cleaned["image_data"] = image
         cleaned["device_name"] = device
@@ -224,24 +241,76 @@ class CitizenFingerprintForm(forms.ModelForm):
 
 class BaseCitizenFingerprintFormSet(BaseInlineFormSet):
     def clean(self):
+        from .fingerprint_match import DUPLICATE_THRESHOLD, hamming_hex, normalize_template
+
         super().clean()
         if any(self.errors):
             return
-        seen = set()
+        seen_fingers = set()
+        seen_templates = []
         for form in self.forms:
             if not hasattr(form, "cleaned_data") or not form.cleaned_data:
                 continue
             if self.can_delete and form.cleaned_data.get("DELETE"):
                 continue
             finger = form.cleaned_data.get("finger")
-            template = (form.cleaned_data.get("template_data") or "").strip()
+            template = normalize_template(form.cleaned_data.get("template_data"))
             image = (form.cleaned_data.get("image_data") or "").strip()
-            if not finger and not template and not image:
+            if not template and not image:
                 continue
-            if finger in seen:
+            if finger in seen_fingers:
                 form.add_error("finger", "This finger is already listed.")
             else:
-                seen.add(finger)
+                seen_fingers.add(finger)
+            if template:
+                for prev in seen_templates:
+                    if hamming_hex(template, prev) <= DUPLICATE_THRESHOLD:
+                        form.add_error(
+                            "template_data",
+                            "This fingerprint matches another finger on this form.",
+                        )
+                        break
+                else:
+                    seen_templates.append(template)
+
+    def save_new_objects(self, commit=True):
+        self.new_objects = []
+        for form in self.extra_forms:
+            if not form.has_changed():
+                continue
+            if self.can_delete and self._should_delete_form(form):
+                continue
+            template = (form.cleaned_data.get("template_data") or "").strip()
+            image = (form.cleaned_data.get("image_data") or "").strip()
+            if not template and not image:
+                continue
+            self.new_objects.append(self.save_new(form, commit=commit))
+        return self.new_objects
+
+
+def make_citizen_fingerprint_formset(data=None, instance=None, prefix="fp"):
+    """List every finger. Duplicate scans are rejected against the whole database."""
+    fingers = [code for code, _label in CitizenFingerprint.FINGER_CHOICES]
+    enrolled = set()
+    if instance is not None and getattr(instance, "pk", None):
+        enrolled = set(instance.fingerprints.values_list("finger", flat=True))
+    missing = [f for f in fingers if f not in enrolled]
+    extra = 0 if data is not None else len(missing)
+    FormSet = inlineformset_factory(
+        Citizen,
+        CitizenFingerprint,
+        form=CitizenFingerprintForm,
+        formset=BaseCitizenFingerprintFormSet,
+        fk_name="citizen",
+        extra=extra,
+        can_delete=True,
+    )
+    kwargs = {"prefix": prefix}
+    if instance is not None:
+        kwargs["instance"] = instance
+    if data is None:
+        kwargs["initial"] = [{"finger": f} for f in missing]
+    return FormSet(data, **kwargs)
 
 
 CitizenFingerprintFormSet = inlineformset_factory(
@@ -250,6 +319,6 @@ CitizenFingerprintFormSet = inlineformset_factory(
     form=CitizenFingerprintForm,
     formset=BaseCitizenFingerprintFormSet,
     fk_name="citizen",
-    extra=1,
+    extra=0,
     can_delete=True,
 )

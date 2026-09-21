@@ -4,7 +4,6 @@
 <div class="page-hdr">
   <h2><i class="bi bi-bar-chart-line text-primary"></i> Reports</h2>
   <div class="d-flex gap-2 flex-wrap">
-    <a href="{% url 'reports:import_excel' %}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Import Excel</a>
     <a href="{% url 'reports:export_beneficiaries' %}" class="btn btn-outline-primary"><i class="bi bi-download"></i> Beneficiaries CSV</a>
     <div class="dropdown">
       <button class="btn btn-outline-success dropdown-toggle" type="button" id="recordsDownloadBtn"
@@ -40,7 +39,7 @@
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3">
     <div class="card-stat">
-      <div class="stat-icon mb-2" style="background:#eff6ff"><i class="bi bi-people" style="color:#2563eb"></i></div>
+      <div class="stat-icon mb-2" style="background:#FEECEF"><i class="bi bi-people" style="color:#E01224"></i></div>
       <div class="stat-val">{{ total_ben }}</div>
       <div class="stat-lbl">Total Beneficiaries</div>
       <div class="text-muted" style="font-size:.75rem;margin-top:.2rem">{{ active_ben }} active</div>
