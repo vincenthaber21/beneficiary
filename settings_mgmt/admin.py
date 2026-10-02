@@ -11,7 +11,19 @@ admin.site.index_title = "System administration"
 
 @admin.register(SystemLogo)
 class SystemLogoAdmin(admin.ModelAdmin):
-    fields = ("logo", "logo_preview", "alt_text", "updated_at")
+    fieldsets = (
+        (
+            "Feature name",
+            {
+                "fields": ("org_name",),
+                "description": "Change the system feature title shown under the logo (e.g. Humanitarian Assistance Grant Management).",
+            },
+        ),
+        (
+            "Logo",
+            {"fields": ("logo", "logo_preview", "alt_text", "updated_at")},
+        ),
+    )
     readonly_fields = ("logo_preview", "updated_at")
 
     def has_add_permission(self, request):

@@ -6,10 +6,10 @@ from django.views.decorators.http import require_http_methods
 from utils import admin_required, staff_required
 
 from .backup import BackupError, build_backup_zip, restore_from_upload
-from .models import SystemSetting
+from .models import SystemLogo, SystemSetting
 
 DEFAULTS = [
-    ("org_name", "Humanitarian Assistance Grant Management", "Shown as the tagline on the login page"),
+    ("org_name", SystemLogo.DEFAULT_ORG_NAME, "Shown as the tagline on the login page"),
     ("org_address", "", "Organization address"),
     ("income_threshold", "15000", "Default monthly income threshold (Php) for qualification"),
     ("grant_cooldown_months", "3", "Default months before a beneficiary can receive another grant"),
@@ -35,6 +35,16 @@ def settings_view(request):
             val = request.POST.get(f"setting_{setting.key}", "").strip()
             setting.value = val
             setting.save()
+
+        # Keep SystemLogo branding in sync when org_name is edited here.
+        org_name = request.POST.get("setting_org_name", "").strip()
+        if org_name:
+            logo = SystemLogo.load()
+            if logo.org_name != org_name:
+                logo.org_name = org_name
+                # Avoid recursive SystemSetting.set from logo.save(); update field only.
+                SystemLogo.objects.filter(pk=logo.pk).update(org_name=org_name)
+
         messages.success(request, "Settings saved successfully.")
         return redirect("settings_mgmt:settings")
 
