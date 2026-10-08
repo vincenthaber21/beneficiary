@@ -156,19 +156,19 @@
     <div class="kpi-lbl">Total Assistance Program</div>
   </div>
   {% endif %}
-  <a href="{% url 'beneficiaries:list' %}" class="kpi-card kpi-cyan">
+  <a href="{% url 'citizens:list' %}?sex=M" class="kpi-card kpi-cyan">
     <div class="kpi-val">{{ male_count }}</div>
-    <div class="kpi-lbl">Male Claimed</div>
+    <div class="kpi-lbl">Male</div>
   </a>
-  <a href="{% url 'beneficiaries:list' %}" class="kpi-card kpi-purple">
+  <a href="{% url 'citizens:list' %}?sex=F" class="kpi-card kpi-purple">
     <div class="kpi-val">{{ female_count }}</div>
-    <div class="kpi-lbl">Female Claimed</div>
+    <div class="kpi-lbl">Female</div>
   </a>
   <div class="kpi-card kpi-pale kpi-light">
     <div class="kpi-val">{{ assistance_pct|floatformat:2 }}</div>
     <div class="kpi-lbl">Percentage of Assistance</div>
   </div>
-  <a href="{% url 'citizens:list' %}" class="kpi-card kpi-lime">
+  <a href="{% url 'citizens:list' %}?vulnerable=1" class="kpi-card kpi-lime">
     <div class="kpi-val">{{ vulnerable_count }}</div>
     <div class="kpi-lbl">Vulnerable Group</div>
   </a>
@@ -178,9 +178,9 @@
   <div class="col-12">
     <div class="panel" style="border-top:3px solid #E01224">
       <div class="panel-hdr">
-        <span><i class="bi bi-bar-chart-fill text-primary"></i> Beneficiaries vs Claimed vs Unclaimed by Barangay</span>
+        <span><i class="bi bi-bar-chart-fill text-primary"></i> Citizens vs Beneficiaries vs Claimed by Barangay</span>
         <span class="text-muted" style="font-size:.78rem;font-weight:400">
-          {% if is_filtered %}Period: {{ filter_label }}{% else %}Active beneficiaries by claim status{% endif %}
+          {% if is_filtered %}Period: {{ filter_label }}{% else %}Live counts from the citizen registry{% endif %}
         </span>
       </div>
       <div class="p-3 p-md-4" style="position:relative;overflow-x:auto">
@@ -209,20 +209,20 @@
   <div class="col-lg-4">
     <div class="panel h-100" style="border-top:3px solid #E78C2D">
       <div class="panel-hdr">
-        <span><i class="bi bi-pie-chart-fill" style="color:#E78C2D"></i> Beneficiaries by Class</span>
+        <span><i class="bi bi-pie-chart-fill" style="color:#E78C2D"></i> Vulnerable Groups</span>
       </div>
       <div class="p-3 doughnut-wrap" style="min-height:280px">
         <!-- Canvas with centered total -->
         <div style="position:relative;width:150px;height:150px;flex-shrink:0">
           <canvas id="doughnutChart" width="150" height="150"></canvas>
           <div id="doughnut-center" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
-            <div style="font-size:1.35rem;font-weight:700;color:#0f172a;line-height:1">{{ total_beneficiaries }}</div>
+            <div style="font-size:1.35rem;font-weight:700;color:#0f172a;line-height:1">{{ vulnerable_count }}</div>
             <div style="font-size:.62rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Total</div>
           </div>
         </div>
         <!-- Legend list -->
         <div id="doughnut-legend" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;width:100%"></div>
-        <div id="doughnut-empty" class="text-muted text-center d-none w-100" style="font-size:.85rem">No beneficiaries yet.</div>
+        <div id="doughnut-empty" class="text-muted text-center d-none w-100" style="font-size:.85rem">No vulnerable groups recorded.</div>
       </div>
       <style>
         .doughnut-wrap{display:flex;align-items:center;gap:1rem}
@@ -259,9 +259,9 @@
   const pieLabels = {{ pie_labels_json|safe }};
   const pieData   = {{ pie_data_json|safe }};
   const brgyLabels = {{ brgy_labels_json|safe }};
+  const brgyCitizens = {{ brgy_citizens_json|safe }};
   const brgyBeneficiaries = {{ brgy_beneficiaries_json|safe }};
   const brgyClaimed = {{ brgy_claimed_json|safe }};
-  const brgyUnclaimed = {{ brgy_unclaimed_json|safe }};
 
   const PALETTE = ['#E01224','#E78C2D','#080B3A','#D4E800','#B80E1C','#6B9A00','#C45A1A','#8BA800','#FC1527','#683C15'];
   const GRID    = '#e2e8f0';
@@ -271,7 +271,7 @@
   Chart.defaults.font.family = FONT;
   Chart.defaults.color       = TEXT;
 
-  /* ── Beneficiaries vs Claimed vs Unclaimed by Barangay ─ */
+  /* ── Citizens vs Beneficiaries vs Claimed by Barangay ─ */
   const brgyEl = document.getElementById('brgyChart');
   if (brgyEl && brgyLabels.length) {
     new Chart(brgyEl.getContext('2d'), {
@@ -280,9 +280,16 @@
         labels: brgyLabels,
         datasets: [
           {
+            label: 'Citizens',
+            data: brgyCitizens,
+            backgroundColor: '#E01224',
+            borderWidth: 0,
+            maxBarThickness: 16,
+          },
+          {
             label: 'Beneficiaries',
             data: brgyBeneficiaries,
-            backgroundColor: '#E01224',
+            backgroundColor: '#080B3A',
             borderWidth: 0,
             maxBarThickness: 16,
           },
@@ -290,13 +297,6 @@
             label: 'Claimed',
             data: brgyClaimed,
             backgroundColor: '#6B9A00',
-            borderWidth: 0,
-            maxBarThickness: 16,
-          },
-          {
-            label: 'Unclaimed',
-            data: brgyUnclaimed,
-            backgroundColor: '#E78C2D',
             borderWidth: 0,
             maxBarThickness: 16,
           },

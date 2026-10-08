@@ -5,9 +5,11 @@ Core beneficiary decision-tree logic (no Django dependencies).
       No  -> Not qualified
       Yes -> Received grants within the last 3 months?
                Yes -> Not qualified
-               No  -> Income less than Php 15,000.00?
-                        Yes -> QUALIFIED
-                        No  -> Not qualified
+               No  -> Passes screen (QUALIFIED)
+
+Valid beneficiary classes:
+  Solo Parent, PWD, Senior Citizen, Construction Worker,
+  Rice Farmer, Market Vendor, Tricycle Driver, Lactating Mother
 """
 
 VALID_CLASSES = [
@@ -21,12 +23,16 @@ VALID_CLASSES = [
     "Lactating Mother",
 ]
 
+# Kept for settings / display compatibility; not used in qualification.
 INCOME_THRESHOLD = 15000.00  # Php
 
 
-def evaluate(beneficiary_class, received_grant_within_3_months, monthly_income,
+def evaluate(beneficiary_class, received_grant_within_3_months, monthly_income=None,
              household_blocker_name=None):
     """Return a dict with the decision and the reason.
+
+    Qualification is based on valid class and grant cooldown only.
+    ``monthly_income`` is accepted for call-site compatibility but ignored.
 
     ``household_blocker_name`` – if set, a family member by that name has received
     a grant within the cooldown window, which disqualifies the whole household.
@@ -41,14 +47,8 @@ def evaluate(beneficiary_class, received_grant_within_3_months, monthly_income,
             f"A family member ({household_blocker_name}) received a grant "
             f"within the last 3 months.",
         )
-    elif monthly_income < INCOME_THRESHOLD:
-        result, reason = "Qualified", "Meets all requirements."
     else:
-        result, reason = (
-            "Not qualified",
-            f"Monthly income (Php {monthly_income:,.2f}) is not below "
-            f"Php {INCOME_THRESHOLD:,.2f}.",
-        )
+        result, reason = "Qualified", "Meets all requirements."
 
     return {
         "result": result,

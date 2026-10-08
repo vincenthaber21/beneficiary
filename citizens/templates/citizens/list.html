@@ -10,6 +10,18 @@
   .aid-enrolled{background:#FEECEF;color:#B80E1C;font-weight:700;font-size:.72rem;padding:.25rem .65rem;border-radius:99px;border:1px solid #F5A8AE}
   .aid-none{background:#f1f5f9;color:#64748b;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
   .aid-availed{background:#dcfce7;color:#15803d;font-weight:700;font-size:.72rem;padding:.25rem .65rem;border-radius:99px;border:1px solid #bbf7d0}
+  .citizen-search-wrap{position:relative}
+  .citizen-search-icon{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;font-size:.9rem}
+  .citizen-search-input{padding-left:2.15rem;padding-right:2.25rem}
+  .citizen-search-clear{
+    position:absolute;right:.35rem;top:50%;transform:translateY(-50%);
+    border:0;background:transparent;color:#94a3b8;width:1.75rem;height:1.75rem;
+    border-radius:6px;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1;
+  }
+  .citizen-search-clear:hover{background:#f1f5f9;color:#E01224}
+  .citizen-search-hint{font-size:.72rem;color:#94a3b8;margin-top:.35rem;line-height:1.35}
+  .citizen-search-hint em{font-style:normal;font-weight:600;color:#64748b}
+  body.citizen-searching .panel .table-responsive{opacity:.55;transition:opacity .15s ease}
 </style>
 
 <div class="page-hdr">
@@ -18,6 +30,13 @@
     <small class="text-muted">Master list of registered citizens / residents</small>
   </div>
   <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'citizens:export_excel' %}?q={{ q|urlencode }}&amp;class={{ cls|urlencode }}&amp;status={{ status|urlencode }}&amp;barangay={{ barangay|urlencode }}&amp;aid={{ aid|urlencode }}&amp;sex={{ sex|urlencode }}"
+       class="btn btn-outline-success"
+       title="Download the current filtered list as Excel">
+      <i class="bi bi-file-earmark-excel"></i>
+      <span class="d-none d-sm-inline">Download Excel</span>
+      <span class="d-sm-none">Excel</span>
+    </a>
     <a href="{% url 'citizens:id_cards_all' %}" class="btn btn-outline-primary">
       <i class="bi bi-printer-fill"></i>
       <span class="d-none d-sm-inline">Print All ID Cards</span>
@@ -58,15 +77,40 @@
 
 <div class="panel mb-3">
   <div class="p-3">
-    <form method="get" class="row g-2 align-items-end">
+    <form method="get" id="citizenFilterForm" class="row g-2 align-items-end">
       <div class="col-md-3">
-        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Search</label>
-        <input type="text" name="q" value="{{ q }}" class="form-control"
-               placeholder="Name, registry no., PhilSys, contact…">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569" for="citizenSearchInput">
+          Search all columns
+        </label>
+        <div class="citizen-search-wrap">
+          <i class="bi bi-search citizen-search-icon" aria-hidden="true"></i>
+          <input type="search" name="q" id="citizenSearchInput" value="{{ q }}"
+                 class="form-control citizen-search-input"
+                 placeholder="Name, ID, barangay, contact, sex, status, class…"
+                 autocomplete="off" autofocus
+                 aria-describedby="citizenSearchHint">
+          <button type="button" class="citizen-search-clear" id="citizenSearchClear"
+                  title="Clear search" aria-label="Clear search"
+                  style="{% if not q %}display:none{% endif %}">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div id="citizenSearchHint" class="citizen-search-hint">
+          Searches every field. Use multiple words (e.g. <em>Juan Santos</em>). Results update as you type.
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Vulnerable Group / Class</label>
+        <select name="class" class="form-select js-live-filter">
+          <option value="">All Classes</option>
+          {% for c in classes %}
+          <option value="{{ c }}" {% if cls == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="col-md-2">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Status</label>
-        <select name="status" class="form-select">
+        <select name="status" class="form-select js-live-filter">
           <option value="">All statuses</option>
           {% for val, lbl in status_choices %}
           <option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ lbl }}</option>
@@ -75,16 +119,16 @@
       </div>
       <div class="col-md-2">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Barangay</label>
-        <select name="barangay" class="form-select">
+        <select name="barangay" class="form-select js-live-filter">
           <option value="">All barangays</option>
           {% for b in barangays %}
           <option value="{{ b }}" {% if barangay == b %}selected{% endif %}>{{ b }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Aid / Beneficiary</label>
-        <select name="aid" class="form-select">
+        <select name="aid" class="form-select js-live-filter">
           <option value="">All</option>
           <option value="enrolled" {% if aid == "enrolled" %}selected{% endif %}>Enrolled as beneficiary</option>
           <option value="availed" {% if aid == "availed" %}selected{% endif %}>Has availed (grant on record)</option>
@@ -111,6 +155,7 @@
           <th>Name</th>
           <th>Sex</th>
           <th>Birth Date</th>
+          <th>Class</th>
           <th>Barangay</th>
           <th>Contact</th>
           <th>Status</th>
@@ -130,6 +175,13 @@
           </td>
           <td>{{ c.get_sex_display|default:"—" }}</td>
           <td>{{ c.date_of_birth|default:"—" }}</td>
+          <td>
+            {% if c.derived_class %}
+            <span class="badge" style="background:#e0e7ff;color:#3730a3;font-weight:500">{{ c.derived_class }}</span>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
           <td>{{ c.barangay|default:"—" }}</td>
           <td>{{ c.contact_number|default:"—" }}</td>
           <td><span class="status-{{ c.status }}">{{ c.get_status_display }}</span></td>
@@ -155,7 +207,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="10" class="text-center text-muted py-5">
+          <td colspan="11" class="text-center text-muted py-5">
             No citizens found.
             <a href="{% url 'citizens:create' %}">Register the first citizen</a>.
           </td>
@@ -173,12 +225,12 @@
       <ul class="pagination pagination-sm mb-0">
         {% if page_obj.has_previous %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status }}&barangay={{ barangay }}&aid={{ aid }}">Prev</a>
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&status={{ status|urlencode }}&barangay={{ barangay|urlencode }}&aid={{ aid|urlencode }}&sex={{ sex|urlencode }}&class={{ cls|urlencode }}">Prev</a>
           </li>
         {% endif %}
         {% if page_obj.has_next %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status }}&barangay={{ barangay }}&aid={{ aid }}">Next</a>
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&status={{ status|urlencode }}&barangay={{ barangay|urlencode }}&aid={{ aid|urlencode }}&sex={{ sex|urlencode }}&class={{ cls|urlencode }}">Next</a>
           </li>
         {% endif %}
       </ul>
@@ -186,4 +238,96 @@
   </div>
   {% endif %}
 </div>
+<script>
+(function () {
+  var form = document.getElementById('citizenFilterForm');
+  var input = document.getElementById('citizenSearchInput');
+  var clearBtn = document.getElementById('citizenSearchClear');
+  if (!form || !input) return;
+
+  var timer = null;
+  var lastSubmitted = (input.value || '').trim();
+  var tableBody = document.querySelector('.panel .table tbody');
+
+  function filterLocalRows(raw) {
+    if (!tableBody) return;
+    var tokens = (raw || '').toLowerCase().split(/\s+/).filter(Boolean);
+    var rows = tableBody.querySelectorAll('tr');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (row.querySelector('td[colspan]')) continue;
+      if (!tokens.length) {
+        row.style.display = '';
+        continue;
+      }
+      var text = (row.textContent || '').toLowerCase();
+      var ok = true;
+      for (var t = 0; t < tokens.length; t++) {
+        if (text.indexOf(tokens[t]) === -1) { ok = false; break; }
+      }
+      row.style.display = ok ? '' : 'none';
+    }
+  }
+
+  function submitFilters(force) {
+    var current = (input.value || '').trim();
+    // Skip duplicate submits from typing debounce when the query did not change.
+    if (!force && current === lastSubmitted) return;
+    // Avoid full-registry hits on a single character; local filter still runs.
+    if (!force && current.length === 1) return;
+    lastSubmitted = current;
+    document.body.classList.add('citizen-searching');
+    // Drop empty filter params so the URL stays clean.
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (!el.name || el.type === 'submit' || el.type === 'button') return;
+      if ((el.value || '') === '' && el.name !== 'q') el.disabled = true;
+    });
+    form.submit();
+  }
+
+  function scheduleSearch() {
+    clearTimeout(timer);
+    timer = setTimeout(function () { submitFilters(false); }, 350);
+  }
+
+  input.addEventListener('input', function () {
+    if (clearBtn) {
+      clearBtn.style.display = (input.value || '').length ? 'inline-flex' : 'none';
+    }
+    // Instant filter on the current page, then debounced full-registry search.
+    filterLocalRows(input.value);
+    scheduleSearch();
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(timer);
+      submitFilters(true);
+    }
+  });
+
+  Array.prototype.forEach.call(form.querySelectorAll('.js-live-filter'), function (sel) {
+    sel.addEventListener('change', function () {
+      clearTimeout(timer);
+      submitFilters(true);
+    });
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      input.value = '';
+      clearBtn.style.display = 'none';
+      clearTimeout(timer);
+      submitFilters(true);
+    });
+  }
+
+  // Keep caret at end after autofocus when a query is already present.
+  if (input.value) {
+    var len = input.value.length;
+    try { input.setSelectionRange(len, len); } catch (e) {}
+  }
+})();
+</script>
 {% endblock %}

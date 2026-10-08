@@ -46,7 +46,6 @@ def _annotate_eligible_counts(programs):
             .filter(
                 is_active=True,
                 beneficiary_class__in=VALID_CLASSES,
-                monthly_income__lt=program.income_threshold,
             )
             .exclude(pk__in=recent_ids)
             .count()

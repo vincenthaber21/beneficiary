@@ -481,7 +481,7 @@
               <span id="eligLabel">Pending</span>
             </div>
             <p id="eligReason" class="elig-reason mb-0"></p>
-            <p class="elig-note mb-0"><i class="bi bi-info-circle"></i> Based on class, grant history, and income vs ₱{{ income_threshold|floatformat:0 }}.</p>
+            <p class="elig-note mb-0"><i class="bi bi-info-circle"></i> Based on valid class and grant history (last 3 months).</p>
           </div>
         </div>
       </div>
@@ -773,7 +773,6 @@
 <script>
 (function () {
   const VALID_CLASSES    = {{ valid_classes_json|safe }};
-  const INCOME_THRESHOLD = {{ income_threshold }};
   const COOLDOWN_DAYS    = 90;
   const SYSTEM_GRANT_YMD = "{{ last_system_grant|default:'' }}";
   const GRANT_LOCKED     = {% if last_system_grant %}true{% else %}false{% endif %};
@@ -1407,11 +1406,9 @@
 
   function updateEligibility() {
     const cls    = classField?.value || '';
-    const raw    = incomeField?.value.trim() || '';
-    const income = raw === '' ? NaN : parseFloat(raw);
     const ymd    = grantDateField?.value || '';
 
-    if (!cls && isNaN(income) && !ymd) { eligCard.style.display='none'; setEligPill('p'); return; }
+    if (!cls && !ymd) { eligCard.style.display='none'; setEligPill('p'); return; }
     eligCard.style.display = '';
 
     if (!cls || !VALID_CLASSES.includes(cls)) {
@@ -1430,21 +1427,8 @@
       setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED',
         'A family member (' + FAMILY_BLOCKER + ') received a grant within the last 3 months.'); return;
     }
-    if (!isNaN(income) && income < INCOME_THRESHOLD) {
-      setElig('q', 'bi-check-circle-fill', 'QUALIFIED',
-        'Valid class \u2713\u2002 No recent grant \u2713\u2002 Income below \u20b1' +
-        INCOME_THRESHOLD.toLocaleString('en-PH') + ' \u2713'); return;
-    }
-    if (!isNaN(income) && income >= INCOME_THRESHOLD) {
-      const incomeLabel = (incomeRangeField && incomeRangeField.value.trim())
-        ? incomeRangeField.value.trim()
-        : ('\u20b1' + income.toLocaleString('en-PH',{minimumFractionDigits:2}));
-      setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED',
-        'Monthly income (' + incomeLabel +
-        ') is not below \u20b1' + INCOME_THRESHOLD.toLocaleString('en-PH',{minimumFractionDigits:2}) + '.'); return;
-    }
-    setElig('p', 'bi-question-circle-fill', 'Enter income to complete preview',
-      'Monthly income is required to determine eligibility.');
+    setElig('q', 'bi-check-circle-fill', 'QUALIFIED',
+      'Valid class \u2713\u2002 No recent grant \u2713');
   }
 
   function setElig(type, ico, lbl, rsn) {

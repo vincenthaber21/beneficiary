@@ -1,5 +1,6 @@
 import calendar
 import json
+from collections import Counter
 from datetime import date, datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
@@ -238,18 +239,9 @@ def dashboard(request):
     total_beneficiaries = beneficiaries_qs.count()
     claimed_ids = GrantRecord.objects.filter(status="released").values("beneficiary_id")
     not_yet_claimed = beneficiaries_qs.exclude(id__in=claimed_ids).count()
-    # Male / Female = distinct beneficiaries who claimed (released grant) by sex
-    claimed_in_period_ids = released_qs.values("beneficiary_id")
-    male_count = (
-        Beneficiary.objects.filter(id__in=claimed_in_period_ids, sex="M")
-        .distinct()
-        .count()
-    )
-    female_count = (
-        Beneficiary.objects.filter(id__in=claimed_in_period_ids, sex="F")
-        .distinct()
-        .count()
-    )
+    # Male / Female = citizens in the registry by sex
+    male_count = citizens_qs.filter(sex="M").count()
+    female_count = citizens_qs.filter(sex="F").count()
     vulnerable_count = (
         citizens_qs.exclude(vulnerable_groups=[])
         .exclude(vulnerable_groups__isnull=True)
@@ -261,26 +253,31 @@ def dashboard(request):
     total_records = records_qs.count()
     released_in_period = released_qs.count()
 
-    class_rows = (
-        beneficiaries_qs.values("beneficiary_class")
-        .annotate(count=Count("id"))
-        .order_by("beneficiary_class")
-    )
-    class_counts = {row["beneficiary_class"]: row["count"] for row in class_rows}
+    # Vulnerable-group breakdown from citizen registry (pie chart)
+    vuln_counter = Counter()
+    for groups in citizens_qs.exclude(vulnerable_groups=[]).exclude(
+        vulnerable_groups__isnull=True
+    ).values_list("vulnerable_groups", flat=True):
+        vuln_counter.update(groups or [])
+    pie_labels = []
+    pie_data = []
+    for code, label in Citizen.VULNERABLE_GROUP_CHOICES:
+        n = vuln_counter.get(code, 0)
+        if n:
+            pie_labels.append(label)
+            pie_data.append(n)
 
     bar_labels, bar_data, chart_title, chart_subtitle = _build_bar_series(
         today, date_from, date_to, flt["filter_mode"]
     )
 
-    pie_labels = list(class_counts.keys())
-    pie_data = list(class_counts.values())
-
-    # Beneficiaries vs Claimed vs Unclaimed by barangay
+    # Citizens vs Beneficiaries vs Claimed by barangay (live DB counts)
     brgy_labels = list(
         Barangay.objects.filter(is_active=True)
         .order_by("name")
         .values_list("name", flat=True)
     )
+    cit_by_brgy = {name: 0 for name in brgy_labels}
     ben_by_brgy = {name: 0 for name in brgy_labels}
     claimed_by_brgy = {name: 0 for name in brgy_labels}
 
@@ -290,10 +287,18 @@ def dashboard(request):
             return
         if key not in mapping:
             brgy_labels.append(key)
+            cit_by_brgy[key] = 0
             ben_by_brgy[key] = 0
             claimed_by_brgy[key] = 0
             mapping[key] = 0
         mapping[key] += n
+
+    for row in (
+        citizens_qs.exclude(barangay="")
+        .values("barangay")
+        .annotate(count=Count("id"))
+    ):
+        _bump(cit_by_brgy, row["barangay"], row["count"])
 
     for row in (
         beneficiaries_qs.exclude(barangay="")
@@ -311,12 +316,9 @@ def dashboard(request):
     ):
         _bump(claimed_by_brgy, row["barangay"], row["count"])
 
+    brgy_citizens = [cit_by_brgy.get(name, 0) for name in brgy_labels]
     brgy_beneficiaries = [ben_by_brgy.get(name, 0) for name in brgy_labels]
     brgy_claimed = [claimed_by_brgy.get(name, 0) for name in brgy_labels]
-    brgy_unclaimed = [
-        max(0, ben_by_brgy.get(name, 0) - claimed_by_brgy.get(name, 0))
-        for name in brgy_labels
-    ]
 
     years = set()
     for y in GrantRecord.objects.dates("date_granted", "year"):
@@ -353,9 +355,9 @@ def dashboard(request):
         "pie_labels_json": json.dumps(pie_labels),
         "pie_data_json": json.dumps(pie_data),
         "brgy_labels_json": json.dumps(brgy_labels),
+        "brgy_citizens_json": json.dumps(brgy_citizens),
         "brgy_beneficiaries_json": json.dumps(brgy_beneficiaries),
         "brgy_claimed_json": json.dumps(brgy_claimed),
-        "brgy_unclaimed_json": json.dumps(brgy_unclaimed),
         "chart_title": chart_title,
         "chart_subtitle": chart_subtitle,
         "filter_year": flt["year"] or "",

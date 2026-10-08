@@ -135,26 +135,15 @@
           </div>
           {% endif %}
 
-          <!-- Step 3: Income threshold -->
-          {% if valid_class and not received_recent and not family_blocker %}
-          <div class="d-flex align-items-start gap-2 p-2 rounded-2 {% if income_ok %}bg-success bg-opacity-10{% else %}bg-danger bg-opacity-10{% endif %}">
-            {% if income_ok %}
-              <i class="bi bi-check-circle-fill text-success mt-1"></i>
-              <div>
-                <strong class="text-success" style="font-size:.85rem">Step 3 — Income Below Threshold</strong>
-                <div class="text-muted" style="font-size:.8rem">
-                  ₱{{ beneficiary.monthly_income|floatformat:2 }} &lt; ₱{{ income_threshold|floatformat:2 }}
-                </div>
+          {% if valid_class and not received_recent and not family_blocker and result.qualified %}
+          <div class="d-flex align-items-start gap-2 p-2 rounded-2 bg-success bg-opacity-10">
+            <i class="bi bi-check-circle-fill text-success mt-1"></i>
+            <div>
+              <strong class="text-success" style="font-size:.85rem">Passes screen</strong>
+              <div class="text-muted" style="font-size:.8rem">
+                Valid class and no recent grant (or household cooldown).
               </div>
-            {% else %}
-              <i class="bi bi-x-circle-fill text-danger mt-1"></i>
-              <div>
-                <strong class="text-danger" style="font-size:.85rem">Step 3 — Income Too High</strong>
-                <div class="text-muted" style="font-size:.8rem">
-                  ₱{{ beneficiary.monthly_income|floatformat:2 }} ≥ ₱{{ income_threshold|floatformat:2 }}
-                </div>
-              </div>
-            {% endif %}
+            </div>
           </div>
           {% endif %}
 

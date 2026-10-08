@@ -11,7 +11,7 @@ from .models import SystemLogo, SystemSetting
 DEFAULTS = [
     ("org_name", SystemLogo.DEFAULT_ORG_NAME, "Shown as the tagline on the login page"),
     ("org_address", "", "Organization address"),
-    ("income_threshold", "15000", "Default monthly income threshold (Php) for qualification"),
+    ("income_threshold", "15000", "Legacy monthly income threshold (Php) — not used in beneficiary qualification"),
     ("grant_cooldown_months", "3", "Default months before a beneficiary can receive another grant"),
     ("contact_email", "", "Contact email address"),
     ("contact_phone", "", "Contact phone number"),

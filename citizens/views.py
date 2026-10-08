@@ -1,3 +1,4 @@
+import io
 from types import SimpleNamespace
 
 from django.contrib import messages
@@ -5,22 +6,53 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-
-from beneficiaries.views import _qr_svg
-from utils import staff_required
-
 from django.urls import reverse
+
+from beneficiaries.models import class_from_citizen
+from beneficiaries.views import _qr_svg
+from checker.logic import VALID_CLASSES
+from utils import staff_required
 
 from .forms import CitizenForm, CitizenFamilyFormSet, make_citizen_fingerprint_formset
 from .models import Citizen
-from .search import search_citizens
+from .search import filter_citizens_by_query, search_citizens
 
 _CREATE_INITIAL = {
     "municipality": "Bacnotan",
     "province": "La Union",
 }
+
+# Map beneficiary-class labels → citizen vulnerable_groups / occupation keys
+# (same derivation used by class_from_citizen).
+_CLASS_FILTERS = {
+    "Solo Parent": {"groups": ["solo_parent"]},
+    "PWD": {"groups": ["pwd"]},
+    "Senior Citizen": {"groups": ["senior"]},
+    "Lactating Mother": {"groups": ["lactating"]},
+    "Rice Farmer": {"groups": ["farmer"], "occupations": ["farmer"]},
+    "Construction Worker": {"occupations": ["laborer"]},
+    "Market Vendor": {"occupations": ["vendor"]},
+    "Tricycle Driver": {"occupations": ["driver"]},
+}
+
+
+def _filter_by_vulnerable_class(qs, cls):
+    """Filter citizens whose vulnerable group / occupation maps to ``cls``."""
+    spec = _CLASS_FILTERS.get(cls)
+    if not spec:
+        return qs
+    q_obj = Q()
+    for g in spec.get("groups", []):
+        # SQLite JSONField has no __contains; match the quoted key in stored JSON.
+        q_obj |= Q(vulnerable_groups__icontains=f'"{g}"')
+    for occ in spec.get("occupations", []):
+        q_obj |= (
+            Q(occupation_1=occ) | Q(occupation_2=occ) | Q(occupation_3=occ)
+        )
+    return qs.filter(q_obj) if q_obj else qs
+
 
 
 def _build_card(citizen):
@@ -78,30 +110,30 @@ def _save_citizen_with_related(form, family_formset, fingerprint_formset):
     return citizen
 
 
-@staff_required
-def citizen_list(request):
+def _filtered_citizen_queryset(request):
+    """Apply list-page filters and return (queryset, filter dict)."""
     q = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
     barangay = request.GET.get("barangay", "").strip()
     aid = request.GET.get("aid", "").strip()  # enrolled | not_enrolled | availed | ""
+    sex = request.GET.get("sex", "").strip().upper()
+    cls = request.GET.get("class", "").strip()
+    if cls not in VALID_CLASSES:
+        cls = ""
+    if sex not in ("M", "F"):
+        sex = ""
 
     qs = Citizen.objects.select_related("beneficiary").all()
     if q:
-        qs = qs.filter(
-            Q(registry_no__icontains=q)
-            | Q(last_name__icontains=q)
-            | Q(first_name__icontains=q)
-            | Q(middle_name__icontains=q)
-            | Q(philsys_id__icontains=q)
-            | Q(voter_id__icontains=q)
-            | Q(contact_number__icontains=q)
-            | Q(other_id_number__icontains=q)
-            | Q(rfid_tag__icontains=q)
-        )
+        qs = filter_citizens_by_query(qs, q)
     if status:
         qs = qs.filter(status=status)
     if barangay:
         qs = qs.filter(barangay__iexact=barangay)
+    if sex:
+        qs = qs.filter(sex=sex)
+    if cls:
+        qs = _filter_by_vulnerable_class(qs, cls)
     if aid == "enrolled":
         qs = qs.filter(beneficiary__isnull=False)
     elif aid == "not_enrolled":
@@ -112,6 +144,21 @@ def citizen_list(request):
             Q(beneficiary__grants__status="released")
             | Q(beneficiary__prior_grant_date__isnull=False)
         ).distinct()
+
+    filters = {
+        "q": q,
+        "status": status,
+        "barangay": barangay,
+        "aid": aid,
+        "sex": sex,
+        "cls": cls,
+    }
+    return qs, filters
+
+
+@staff_required
+def citizen_list(request):
+    qs, filters = _filtered_citizen_queryset(request)
 
     barangays = (
         Citizen.objects.exclude(barangay="")
@@ -125,21 +172,162 @@ def citizen_list(request):
     paginator = Paginator(qs, 50)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    citizens = list(page_obj.object_list)
+    for c in citizens:
+        c.derived_class = class_from_citizen(c)
+
     context = {
-        "citizens": page_obj.object_list,
+        "citizens": citizens,
         "page_obj": page_obj,
         "total": total,
-        "q": q,
-        "status": status,
-        "barangay": barangay,
-        "aid": aid,
+        "classes": VALID_CLASSES,
         "barangays": barangays,
         "status_choices": Citizen.STATUS_CHOICES,
         "count_active": Citizen.objects.filter(status="active").count(),
         "count_inactive": Citizen.objects.exclude(status="active").count(),
         "count_enrolled": enrolled_count,
+        **filters,
     }
     return render(request, "citizens/list.html", context)
+
+
+@staff_required
+def citizen_export_excel(request):
+    """Download the currently filtered citizen list as an .xlsx file."""
+    try:
+        import openpyxl
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        messages.error(request, "Excel export requires openpyxl. Run: pip install openpyxl")
+        return redirect("citizens:list")
+
+    qs, filters = _filtered_citizen_queryset(request)
+    citizens = qs.order_by("last_name", "first_name")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Citizens"
+
+    headers = [
+        "Citizen ID", "Last Name", "First Name", "Middle Name", "Suffix",
+        "Sex", "Birth Date", "Place of Birth", "Civil Status",
+        "Class", "Vulnerable Groups", "Occupation 1", "Occupation 2", "Occupation 3",
+        "Contact", "Email", "Address", "Barangay", "Municipality", "Province", "Zip Code",
+        "PhilSys ID", "Voter ID", "Other ID Type", "Other ID Number", "RFID Tag",
+        "Education", "Income Range", "Health Conditions", "Religion",
+        "Status", "Aid / Beneficiary", "Beneficiary Class", "Date Registered", "Notes",
+    ]
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="B80E1C")
+    thin = Border(
+        left=Side(style="thin", color="DDDDDD"),
+        right=Side(style="thin", color="DDDDDD"),
+        top=Side(style="thin", color="DDDDDD"),
+        bottom=Side(style="thin", color="DDDDDD"),
+    )
+    for col, title in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=title)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = thin
+
+    occ_labels = dict(Citizen.OCCUPATION_CHOICES)
+    edu_labels = dict(Citizen.EDUCATION_CHOICES)
+    income_labels = dict(Citizen.INCOME_RANGE_CHOICES)
+    civil_labels = dict(Citizen.CIVIL_STATUS_CHOICES)
+    status_labels = dict(Citizen.STATUS_CHOICES)
+    sex_labels = dict(Citizen.SEX_CHOICES)
+
+    for row_idx, c in enumerate(citizens.iterator(chunk_size=500), 2):
+        try:
+            beneficiary = c.beneficiary
+        except ObjectDoesNotExist:
+            beneficiary = None
+        if beneficiary is not None:
+            aid_label = "Enrolled"
+            ben_class = beneficiary.beneficiary_class or ""
+        else:
+            aid_label = "Not enrolled"
+            ben_class = ""
+        values = [
+            c.registry_no or "",
+            c.last_name,
+            c.first_name,
+            c.middle_name or "",
+            c.suffix or "",
+            sex_labels.get(c.sex, c.sex or ""),
+            c.date_of_birth.isoformat() if c.date_of_birth else "",
+            c.place_of_birth or "",
+            civil_labels.get(c.civil_status, c.civil_status or ""),
+            class_from_citizen(c) or "",
+            ", ".join(c.vulnerable_labels()),
+            occ_labels.get(c.occupation_1, c.occupation_1 or ""),
+            occ_labels.get(c.occupation_2, c.occupation_2 or ""),
+            occ_labels.get(c.occupation_3, c.occupation_3 or ""),
+            c.contact_number or "",
+            c.email or "",
+            c.address or "",
+            c.barangay or "",
+            c.municipality or "",
+            c.province or "",
+            c.zip_code or "",
+            c.philsys_id or "",
+            c.voter_id or "",
+            c.other_id_type or "",
+            c.other_id_number or "",
+            c.rfid_tag or "",
+            edu_labels.get(c.education, c.education or ""),
+            income_labels.get(c.income_range, c.income_range or ""),
+            ", ".join(c.health_labels()),
+            c.religion or "",
+            status_labels.get(c.status, c.status or ""),
+            aid_label,
+            ben_class,
+            c.date_registered.isoformat() if c.date_registered else "",
+            c.notes or "",
+        ]
+        for col, value in enumerate(values, 1):
+            cell = ws.cell(row=row_idx, column=col, value=value)
+            cell.border = thin
+
+    widths = {
+        1: 14, 2: 16, 3: 16, 4: 14, 5: 8, 6: 8, 7: 12, 8: 18, 9: 14,
+        10: 16, 11: 24, 12: 16, 13: 16, 14: 16, 15: 14, 16: 22, 17: 24,
+        18: 14, 19: 14, 20: 12, 21: 10, 22: 16, 23: 14, 24: 14, 25: 14,
+        26: 14, 27: 18, 28: 18, 29: 22, 30: 14, 31: 12, 32: 14, 33: 16,
+        34: 14, 35: 30,
+    }
+    for col, width in widths.items():
+        ws.column_dimensions[get_column_letter(col)].width = width
+    ws.auto_filter.ref = ws.dimensions
+    ws.freeze_panes = "A2"
+
+    parts = ["citizens"]
+    if filters["aid"]:
+        parts.append(filters["aid"])
+    if filters["cls"]:
+        parts.append(filters["cls"].replace(" ", "_")[:30])
+    if filters["status"]:
+        parts.append(filters["status"])
+    if filters["barangay"]:
+        parts.append(filters["barangay"].replace(" ", "_")[:20])
+    if filters["sex"]:
+        parts.append(filters["sex"])
+    if filters["q"]:
+        parts.append("search")
+    filename = "_".join(parts) + ".xlsx"
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @staff_required

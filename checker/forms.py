@@ -17,9 +17,3 @@ class BeneficiaryForm(forms.Form):
         widget=forms.RadioSelect,
         initial=0,
     )
-    monthly_income = forms.DecimalField(
-        label="Monthly income (Php)",
-        min_value=0,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "field", "placeholder": "e.g. 12000"}),
-    )

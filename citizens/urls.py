@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.citizen_list, name="list"),
     path("add/", views.citizen_create, name="create"),
     path("search/", views.citizen_search, name="search"),
+    path("export/excel/", views.citizen_export_excel, name="export_excel"),
     path("id-cards/", views.citizen_id_cards_all, name="id_cards_all"),
     path("<int:pk>/", views.citizen_detail, name="detail"),
     path("<int:pk>/edit/", views.citizen_update, name="update"),

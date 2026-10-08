@@ -23,6 +23,8 @@ def sync_linked_beneficiary(sender, instance, **kwargs):
         beneficiary.province,
         beneficiary.rfid_id,
         beneficiary.signature,
+        beneficiary.beneficiary_class,
+        beneficiary.monthly_income,
     )
     beneficiary.sync_from_citizen(instance)
     after = (
@@ -37,10 +39,12 @@ def sync_linked_beneficiary(sender, instance, **kwargs):
         beneficiary.province,
         beneficiary.rfid_id,
         beneficiary.signature,
+        beneficiary.beneficiary_class,
+        beneficiary.monthly_income,
     )
     if before != after:
         beneficiary.save(update_fields=[
             "last_name", "first_name", "middle_name", "sex",
             "contact_number", "address", "barangay", "municipality", "province",
-            "rfid_id", "signature",
+            "rfid_id", "signature", "beneficiary_class", "monthly_income",
         ])

@@ -79,18 +79,16 @@
             <strong class="text-success fs-6">{{ qualified_count }} / {{ total_classified }} QUALIFIED</strong>
           </div>
           <p class="mb-0 text-muted" style="font-size:.875rem">
-            Based on: valid class ✓ · no prior grants ✓ · income ₱0.00 &lt; ₱15,000 threshold ✓<br>
-            <em>Income was not available in source files and defaults to ₱0.00. Update after import.</em>
+            Based on: valid class ✓ · no prior grants ✓
           </p>
         </div>
 
         <div class="mb-2" style="font-size:.875rem">
           <i class="bi bi-info-circle text-primary"></i>
-          The decision tree checks three criteria for each beneficiary class:
+          The decision tree checks two criteria:
           <ol class="mt-2 mb-0 ps-3">
             <li>Is the person a member of a valid beneficiary class?</li>
-            <li>Did they receive a grant in the last 3 months? (No → continue)</li>
-            <li>Is monthly income &lt; ₱15,000? (Yes → <strong class="text-success">Qualified</strong>)</li>
+            <li>Did they receive a grant in the last 3 months? (No → <strong class="text-success">Passes screen</strong>)</li>
           </ol>
         </div>
 

@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from datetime import timedelta
 from utils import rfid_access_required, staff_required
-from checker.logic import evaluate, VALID_CLASSES, INCOME_THRESHOLD
+from checker.logic import evaluate, VALID_CLASSES
 from records.models import GrantRecord
 from .models import Beneficiary, FamilyMember
 from .forms import (
@@ -178,6 +178,51 @@ def beneficiary_list(request):
         "not_claimed_count": not_claimed_count,
         "q": q, "cls": cls, "fam": fam, "claim": claim,
         "classes": VALID_CLASSES,
+    })
+
+
+@staff_required
+def beneficiary_auto_enroll(request):
+    """Preview / run auto-enrollment of beneficiaries from the Citizen Registry."""
+    from .auto_enroll import auto_enroll_from_citizens, preview_auto_enroll
+
+    if request.method == "POST":
+        sync_existing = request.POST.get("sync_existing", "1") == "1"
+        link_families = request.POST.get("link_families", "1") == "1"
+        result = auto_enroll_from_citizens(
+            sync_existing=sync_existing,
+            link_families=link_families,
+        )
+        if result.created:
+            sample = ", ".join(result.created_names[:8])
+            more = result.created - min(8, len(result.created_names))
+            extra = f" (+{more} more)" if more > 0 else ""
+            messages.success(
+                request,
+                f"Auto-enrolled {result.created} beneficiar"
+                f"{'y' if result.created == 1 else 'ies'} from Citizens"
+                f"{f': {sample}{extra}' if sample else '.'}",
+            )
+        else:
+            messages.info(request, "No new beneficiaries to enroll from Citizens.")
+        if result.synced:
+            messages.info(
+                request,
+                f"Synced {result.synced} existing beneficiar"
+                f"{'y' if result.synced == 1 else 'ies'} from their citizen records.",
+            )
+        if result.family_links:
+            messages.info(
+                request,
+                f"Linked {result.family_links} family relationship"
+                f"{'' if result.family_links == 1 else 's'} from citizen households.",
+            )
+        return redirect("beneficiaries:list")
+
+    preview = preview_auto_enroll(limit=50)
+    return render(request, "beneficiaries/auto_enroll.html", {
+        "preview": preview,
+        "already_enrolled": Beneficiary.objects.exclude(citizen__isnull=True).count(),
     })
 
 
@@ -354,7 +399,6 @@ def beneficiary_create(request):
         "fingerprint_formset": fingerprint_formset,
         "card": _build_form_card(),
         "valid_classes_json": json.dumps(VALID_CLASSES),
-        "income_threshold": INCOME_THRESHOLD,
         "citizen_lookup_url": reverse("beneficiaries:citizen_lookup"),
         "available_citizen_count": available_count,
         "enrollable_citizen_count": available_count,
@@ -445,7 +489,6 @@ def beneficiary_update(request, pk):
         "last_system_grant": last_system_grant.isoformat() if last_system_grant else "",
         "family_blocker": family_blocker or "",
         "valid_classes_json": json.dumps(VALID_CLASSES),
-        "income_threshold": INCOME_THRESHOLD,
         "citizen_lookup_url": reverse("beneficiaries:citizen_lookup"),
         "available_citizen_count": available_citizen_count(ben.pk),
         "enrollable_citizen_count": available_citizen_count(ben.pk),
@@ -728,9 +771,6 @@ def beneficiary_detail(request, pk):
         cooldown_source_date = ben.prior_grant_date
     cooldown_end = cooldown_source_date + timedelta(days=90) if cooldown_source_date else None
 
-    # Step 3 – income check
-    income_ok = float(ben.monthly_income) < INCOME_THRESHOLD
-
     # Household rule – a grant to any family member blocks the whole family
     blocker_id_map, name_map, _ = household_cooldown(3)
     family_blocker = None if received_recent else family_block_for(ben.pk, blocker_id_map, name_map)
@@ -738,7 +778,6 @@ def beneficiary_detail(request, pk):
     result = evaluate(
         beneficiary_class=ben.beneficiary_class,
         received_grant_within_3_months=received_recent,
-        monthly_income=float(ben.monthly_income),
         household_blocker_name=family_blocker,
     )
     # Family connections (both directions)
@@ -768,8 +807,6 @@ def beneficiary_detail(request, pk):
         "cooldown_source_date": cooldown_source_date,
         "cooldown_end": cooldown_end,
         "family_blocker": family_blocker,
-        "income_ok": income_ok,
-        "income_threshold": INCOME_THRESHOLD,
     })
 
 

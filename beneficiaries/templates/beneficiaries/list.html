@@ -29,6 +29,12 @@
 <div class="page-hdr">
   <h2><i class="bi bi-person-check text-primary"></i> Beneficiaries</h2>
   <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'beneficiaries:auto_enroll' %}" class="btn btn-outline-primary"
+       title="Automatically enroll eligible citizens as beneficiaries">
+      <i class="bi bi-magic"></i>
+      <span class="d-none d-sm-inline">Auto from Citizens</span>
+      <span class="d-sm-none">Auto</span>
+    </a>
     <a href="{% url 'beneficiaries:export_excel' %}?q={{ q|urlencode }}&amp;class={{ cls|urlencode }}&amp;family={{ fam|urlencode }}&amp;claim={{ claim|urlencode }}"
        class="btn btn-outline-success"
        title="Download the current filtered list as Excel">

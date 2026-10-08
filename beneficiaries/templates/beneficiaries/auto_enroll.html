@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Auto-enroll from Citizens{% endblock %}
+{% block content %}
+<div class="page-hdr">
+  <h2><i class="bi bi-magic text-primary"></i> Auto-enroll from Citizens</h2>
+  <a href="{% url 'beneficiaries:list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Back to Beneficiaries
+  </a>
+</div>
+
+<div class="panel mb-3">
+  <div class="p-3">
+    <p class="mb-2 text-muted" style="max-width:52rem">
+      Scans the <a href="{% url 'citizens:list' %}">Citizen Registry</a> and enrolls active
+      citizens who are not yet beneficiaries. A citizen enrolls when they belong to a valid
+      beneficiary class (from vulnerable groups / occupation). Monthly income is copied when
+      available but is not used for qualification.
+    </p>
+    <div class="d-flex flex-wrap gap-3 small">
+      <span><strong>{{ preview.enrollable_count }}</strong> ready to enroll</span>
+      <span class="text-muted">·</span>
+      <span><strong>{{ already_enrolled }}</strong> already enrolled</span>
+      <span class="text-muted">·</span>
+      <span>{{ preview.skipped_no_class }} missing class</span>
+    </div>
+  </div>
+</div>
+
+<div class="panel mb-3">
+  <div class="panel-hdr"><span>Options</span></div>
+  <div class="p-3">
+    <form method="post" id="auto-enroll-form">
+      {% csrf_token %}
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="sync_existing" value="1"
+               id="id_sync_existing" checked>
+        <label class="form-check-label" for="id_sync_existing">
+          Sync existing beneficiaries from their linked citizen records
+        </label>
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="link_families" value="1"
+               id="id_link_families" checked>
+        <label class="form-check-label" for="id_link_families">
+          Link family relationships from citizen household composition
+        </label>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm('{% if preview.enrollable_count %}Enroll {{ preview.enrollable_count }} citizen{{ preview.enrollable_count|pluralize }} as beneficiaries and sync existing records?{% else %}No new citizens to enroll. Sync existing beneficiaries and family links from Citizens?{% endif %}');">
+          <i class="bi bi-magic"></i>
+          {% if preview.enrollable_count %}
+          Enroll {{ preview.enrollable_count }} beneficiar{{ preview.enrollable_count|pluralize:"y,ies" }}
+          {% else %}
+          Sync from Citizens
+          {% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-hdr">
+    <span>
+      Preview
+      {% if preview.enrollable_count > preview.preview|length %}
+        (showing {{ preview.preview|length }} of {{ preview.enrollable_count }})
+      {% endif %}
+    </span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Citizen ID</th>
+          <th>Name</th>
+          <th>Barangay</th>
+          <th>Class</th>
+          <th>Monthly Income</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in preview.preview %}
+        <tr>
+          <td><code style="font-size:.8rem">{{ row.registry_no|default:"—" }}</code></td>
+          <td class="fw-semibold">{{ row.name }}</td>
+          <td>{{ row.barangay|default:"—" }}</td>
+          <td><span class="badge" style="background:#e2e8f0;color:#334155;font-weight:500">{{ row.beneficiary_class }}</span></td>
+          <td>
+            {% if row.monthly_income != None %}
+            ₱{{ row.monthly_income|floatformat:2 }}
+            {% if row.income_range %}
+            <div class="text-muted small">{{ row.income_range }}</div>
+            {% endif %}
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{% url 'citizens:detail' row.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">
+            No enrollable citizens found.
+            Set vulnerable groups or occupation on Citizens so a valid beneficiary class can be derived.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

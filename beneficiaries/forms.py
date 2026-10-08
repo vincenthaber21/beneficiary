@@ -2,6 +2,7 @@ from django import forms
 from django.core.cache import cache
 from django.db.models import Q
 from django.forms import BaseInlineFormSet, inlineformset_factory
+from decimal import Decimal
 
 from citizens.models import Citizen, get_barangay_choices
 
@@ -294,7 +295,8 @@ class BeneficiaryForm(forms.ModelForm):
         label="Barangay",
     )
     # Visible locked field — mirrors Citizens “Monthly Income” (income_range display).
-    # Numeric monthly_income stays hidden and is derived server-side for eligibility.
+    # Numeric monthly_income stays hidden and is derived server-side from the citizen.
+    # It is stored for reference only — qualification uses class + grant cooldown.
     income_range_display = forms.CharField(
         required=False,
         label="Monthly Income",
@@ -509,14 +511,8 @@ class BeneficiaryForm(forms.ModelForm):
             cleaned["income_range_display"] = citizen.get_income_range_display()
         else:
             cleaned["income_range_display"] = ""
-        if monthly is None:
-            self.add_error(
-                "income_range_display",
-                "No monthly income found for this citizen. "
-                "Set Monthly Income on their Citizens record first.",
-            )
-        else:
-            cleaned["monthly_income"] = monthly
+        # Income is stored when available; it is not used for qualification.
+        cleaned["monthly_income"] = monthly if monthly is not None else Decimal("0.00")
         return cleaned
 
     def save(self, commit=True):

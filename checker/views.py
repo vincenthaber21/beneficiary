@@ -12,7 +12,6 @@ def check(request):
             result = evaluate(
                 beneficiary_class=data["beneficiary_class"],
                 received_grant_within_3_months=data["received_grant_within_3_months"],
-                monthly_income=float(data["monthly_income"]),
             )
     else:
         form = BeneficiaryForm()
