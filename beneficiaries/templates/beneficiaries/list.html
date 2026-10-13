@@ -24,6 +24,44 @@
   .unclaim-badge { display:inline-flex; align-items:center; gap:.25rem; font-size:.68rem; font-weight:700;
     padding:.12rem .5rem; border-radius:99px; background:#fff7ed; color:#c2410c; vertical-align:middle;
     margin-left:.4rem; border:1px solid #fed7aa; }
+  .class-pill{background:#e0e7ff;color:#3730a3;font-weight:500}
+  .tag-cell{display:flex;flex-wrap:wrap;gap:.25rem;max-width:220px}
+  .ben-search-wrap{position:relative}
+  .ben-search-icon{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;font-size:.9rem}
+  .ben-search-input{padding-left:2.15rem;padding-right:2.25rem}
+  .ben-search-clear{
+    position:absolute;right:.35rem;top:50%;transform:translateY(-50%);
+    border:0;background:transparent;color:#94a3b8;width:1.75rem;height:1.75rem;
+    border-radius:6px;display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1;
+  }
+  .ben-search-clear:hover{background:#f1f5f9;color:#E01224}
+  .ben-search-hint{font-size:.72rem;color:#94a3b8;margin-top:.35rem;line-height:1.35}
+  .ben-search-hint em{font-style:normal;font-weight:600;color:#64748b}
+  body.ben-searching .panel .table-responsive{opacity:.55;transition:opacity .15s ease}
+  .ben-name-results{
+    position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;
+    background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+    box-shadow:0 14px 36px rgba(15,23,42,.14);max-height:340px;overflow:auto;
+    display:none;
+  }
+  .ben-name-results.open{display:block}
+  .ben-name-item{
+    width:100%;text-align:left;border:0;border-bottom:1px solid #f1f5f9;
+    background:#fff;padding:.55rem .75rem;display:flex;align-items:center;gap:.65rem;
+    cursor:pointer;
+  }
+  .ben-name-item:last-child{border-bottom:0}
+  .ben-name-item:hover,.ben-name-item.active{background:#FEECEF}
+  .ben-name-av{
+    width:2rem;height:2rem;border-radius:99px;background:#FEECEF;color:#B80E1C;
+    font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  .ben-name-body{min-width:0;flex:1}
+  .ben-name-title{display:block;font-size:.84rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ben-name-meta{display:block;font-size:.7rem;color:#64748b;margin-top:.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ben-name-id{font-size:.7rem;color:#475569;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;flex:0 0 auto}
+  .ben-name-empty,.ben-name-more{padding:.65rem .75rem;font-size:.75rem;color:#64748b}
+  .ben-name-more{border-top:1px solid #f1f5f9;background:#f8fafc}
 </style>
 
 <div class="page-hdr">
@@ -35,7 +73,7 @@
       <span class="d-none d-sm-inline">Auto from Citizens</span>
       <span class="d-sm-none">Auto</span>
     </a>
-    <a href="{% url 'beneficiaries:export_excel' %}?q={{ q|urlencode }}&amp;class={{ cls|urlencode }}&amp;family={{ fam|urlencode }}&amp;claim={{ claim|urlencode }}&amp;sex={{ sex|urlencode }}&amp;date_from={{ date_from|urlencode }}&amp;date_to={{ date_to|urlencode }}"
+    <a href="{% url 'beneficiaries:export_excel' %}?q={{ q|urlencode }}&amp;group={{ group|urlencode }}&amp;family={{ fam|urlencode }}&amp;claim={{ claim|urlencode }}&amp;sex={{ sex|urlencode }}&amp;date_from={{ date_from|urlencode }}&amp;date_to={{ date_to|urlencode }}"
        class="btn btn-outline-success"
        title="Download the current filtered list as Excel">
       <i class="bi bi-file-earmark-excel"></i>
@@ -49,34 +87,57 @@
 
 <div class="panel mb-3">
   <div class="p-3">
-    <form method="get" class="row g-2 align-items-end">
-      <div class="col-md-3">
-        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search name, Citizen ID, RFID, contact…">
+    <form method="get" id="beneficiaryFilterForm" class="row g-2 align-items-end">
+      <div class="col-12">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569" for="beneficiarySearchInput">
+          Search by name
+        </label>
+        <div class="ben-search-wrap" id="beneficiarySearchBox"
+             data-search-url="{% url 'beneficiaries:name_search' %}">
+          <i class="bi bi-search ben-search-icon" aria-hidden="true"></i>
+          <input type="search" name="q" id="beneficiarySearchInput" value="{{ q }}"
+                 class="form-control ben-search-input"
+                 placeholder="Type any part of the name — first, middle, last, or suffix"
+                 autocomplete="off" autofocus
+                 role="combobox" aria-expanded="false" aria-controls="beneficiarySearchResults"
+                 aria-autocomplete="list" aria-describedby="beneficiarySearchHint">
+          <button type="button" class="ben-search-clear" id="beneficiarySearchClear"
+                  title="Clear search" aria-label="Clear search"
+                  style="{% if not q %}display:none{% endif %}">
+            <i class="bi bi-x-lg"></i>
+          </button>
+          <div id="beneficiarySearchResults" class="ben-name-results" role="listbox"></div>
+        </div>
+        <div id="beneficiarySearchHint" class="ben-search-hint">
+          Searches every enrolled beneficiary. Match any name part, in any order
+          (for example <em>Angela Grace Abad</em> or <em>Abad, Angela</em>).
+          Choose a name, or press Enter to filter the list.
+        </div>
       </div>
       <div class="col-md-2">
-        <select name="class" class="form-select">
-          <option value="">All Classes</option>
-          {% for c in classes %}
-          <option value="{{ c }}" {% if cls == c %}selected{% endif %}>{{ c }}</option>
+        <select name="group" class="form-select js-live-filter">
+          <option value="">All vulnerable groups</option>
+          {% for item in group_options %}
+          <option value="{{ item.code }}" {% if group == item.code %}selected{% endif %}>{{ item.name }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="col-md-2">
-        <select name="family" class="form-select">
+        <select name="family" class="form-select js-live-filter">
           <option value="">All Beneficiaries</option>
           <option value="family" {% if fam == "family" %}selected{% endif %}>In a family</option>
           <option value="individual" {% if fam == "individual" %}selected{% endif %}>Individuals only</option>
         </select>
       </div>
       <div class="col-md-2">
-        <select name="claim" class="form-select">
+        <select name="claim" class="form-select js-live-filter">
           <option value="">All claim status</option>
           <option value="claimed" {% if claim == "claimed" %}selected{% endif %}>Claimed</option>
           <option value="not_claimed" {% if claim == "not_claimed" %}selected{% endif %}>Does not claim</option>
         </select>
       </div>
       <div class="col-md-2">
-        <select name="sex" class="form-select">
+        <select name="sex" class="form-select js-live-filter">
           <option value="">All sexes</option>
           <option value="M" {% if sex == "M" %}selected{% endif %}>Male</option>
           <option value="F" {% if sex == "F" %}selected{% endif %}>Female</option>
@@ -124,7 +185,7 @@
       <thead>
         <tr>
           <th>Name</th>
-          <th>Class</th>
+          <th>Vulnerable Group</th>
           <th>Monthly Income</th>
           <th>Eligibility</th>
           <th>Contact</th>
@@ -148,7 +209,9 @@
           {% for b in group.members %}
           <tr class="{% if group.is_family %}fam-member-row{% else %}fam-solo-row{% endif %}">
             <td>
-              <a href="{% url 'beneficiaries:detail' b.pk %}" class="fw-semibold text-decoration-none">{{ b }}</a>
+              <a href="{% url 'beneficiaries:detail' b.pk %}" class="fw-semibold text-decoration-none">
+                {{ b.last_name }}, {{ b.first_name }}{% if b.middle_name %} {{ b.middle_name }}{% endif %}{% if b.citizen_id and b.citizen.suffix %} {{ b.citizen.suffix }}{% endif %}
+              </a>
               {% if b.has_received %}
               <span class="recv-badge" title="Has claimed {{ b.received_count }} released grant{{ b.received_count|pluralize }} from a program">
                 <i class="bi bi-gift-fill"></i> Claimed{% if b.received_count > 1 %} ×{{ b.received_count }}{% endif %}
@@ -159,7 +222,15 @@
               </span>
               {% endif %}
             </td>
-            <td><span class="badge" style="background:#e2e8f0;color:#334155;font-weight:500">{{ b.beneficiary_class }}</span></td>
+            <td>
+              <div class="tag-cell">
+                {% for label in b.group_labels %}
+                <span class="badge class-pill">{{ label }}</span>
+                {% empty %}
+                <span class="text-muted">—</span>
+                {% endfor %}
+              </div>
+            </td>
             <td>₱{{ b.monthly_income|floatformat:2 }}</td>
             <td>
               {% if b.eligibility_result.qualified %}
@@ -195,4 +266,220 @@
     </table>
   </div>
 </div>
+<script>
+(function () {
+  var form = document.getElementById('beneficiaryFilterForm');
+  var input = document.getElementById('beneficiarySearchInput');
+  var clearBtn = document.getElementById('beneficiarySearchClear');
+  var box = document.getElementById('beneficiarySearchBox');
+  var resultsBox = document.getElementById('beneficiarySearchResults');
+  if (!form || !input || !box || !resultsBox) return;
+
+  var searchUrl = box.getAttribute('data-search-url') || '';
+  var timer = null;
+  var suggestTimer = null;
+  var suggestAbort = null;
+  var lastSubmitted = (input.value || '').trim();
+  var items = [];
+  var activeIndex = -1;
+  var pointerInResults = false;
+
+  function submitFilters(force) {
+    var current = (input.value || '').trim();
+    if (!force && current === lastSubmitted) return;
+    if (!force && current.length === 1) return;
+    lastSubmitted = current;
+    closeResults();
+    document.body.classList.add('ben-searching');
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (!el.name || el.type === 'submit' || el.type === 'button') return;
+      if ((el.value || '') === '' && el.name !== 'q') el.disabled = true;
+    });
+    form.submit();
+  }
+
+  function scheduleSearch() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      if (pointerInResults || activeIndex >= 0) return;
+      submitFilters(false);
+    }, 800);
+  }
+
+  function closeResults() {
+    resultsBox.classList.remove('open');
+    resultsBox.innerHTML = '';
+    input.setAttribute('aria-expanded', 'false');
+    items = [];
+    activeIndex = -1;
+  }
+
+  function initials(name) {
+    var parts = (name || '').replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  }
+
+  function setActive(index) {
+    var buttons = resultsBox.querySelectorAll('.ben-name-item');
+    activeIndex = index;
+    for (var i = 0; i < buttons.length; i++) {
+      if (i === index) buttons[i].classList.add('active');
+      else buttons[i].classList.remove('active');
+    }
+    if (index >= 0 && buttons[index]) {
+      buttons[index].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function openPerson(item) {
+    if (!item || !item.url) return;
+    clearTimeout(timer);
+    clearTimeout(suggestTimer);
+    window.location.href = item.url;
+  }
+
+  function renderResults(list, total) {
+    resultsBox.innerHTML = '';
+    items = list || [];
+    activeIndex = -1;
+    if (!items.length) {
+      resultsBox.innerHTML = '<div class="ben-name-empty">No names match that search.</div>';
+      resultsBox.classList.add('open');
+      input.setAttribute('aria-expanded', 'true');
+      return;
+    }
+    items.forEach(function (item, idx) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ben-name-item';
+      btn.setAttribute('role', 'option');
+      btn.innerHTML =
+        '<span class="ben-name-av"></span>' +
+        '<span class="ben-name-body"><span class="ben-name-title"></span>' +
+        '<span class="ben-name-meta"></span></span>' +
+        '<span class="ben-name-id"></span>';
+      btn.querySelector('.ben-name-av').textContent = initials(item.name);
+      btn.querySelector('.ben-name-title').textContent = item.name || '';
+      var meta = [];
+      if (item.sex) meta.push(item.sex);
+      meta.push(item.barangay || 'No barangay');
+      btn.querySelector('.ben-name-meta').textContent = meta.join(' · ');
+      btn.querySelector('.ben-name-id').textContent = item.registry_no || '';
+      function choose(e) {
+        e.preventDefault();
+        openPerson(item);
+      }
+      btn.addEventListener('mousedown', choose);
+      btn.addEventListener('click', choose);
+      btn.addEventListener('mouseenter', function () { setActive(idx); });
+      resultsBox.appendChild(btn);
+    });
+    if (total > items.length) {
+      var more = document.createElement('div');
+      more.className = 'ben-name-more';
+      more.textContent = 'Showing ' + items.length + ' of ' + total +
+        '. Keep typing, or press Enter to filter the full list.';
+      resultsBox.appendChild(more);
+    }
+    resultsBox.classList.add('open');
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function fetchSuggestions() {
+    var q = (input.value || '').trim();
+    if (!searchUrl || q.length < 2) {
+      closeResults();
+      return;
+    }
+    if (suggestAbort) suggestAbort.abort();
+    suggestAbort = new AbortController();
+    var url = searchUrl + (searchUrl.indexOf('?') === -1 ? '?' : '&') +
+      'q=' + encodeURIComponent(q) + '&limit=8';
+    fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: suggestAbort.signal
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if ((input.value || '').trim() !== q) return;
+      renderResults((data && data.results) || [], (data && data.total) || 0);
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return;
+    });
+  }
+
+  function scheduleSuggestions() {
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(fetchSuggestions, 180);
+  }
+
+  input.addEventListener('input', function () {
+    if (clearBtn) {
+      clearBtn.style.display = (input.value || '').length ? 'inline-flex' : 'none';
+    }
+    activeIndex = -1;
+    scheduleSuggestions();
+    scheduleSearch();
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' && items.length) {
+      e.preventDefault();
+      clearTimeout(timer);
+      setActive(activeIndex < items.length - 1 ? activeIndex + 1 : 0);
+      return;
+    }
+    if (e.key === 'ArrowUp' && items.length) {
+      e.preventDefault();
+      clearTimeout(timer);
+      setActive(activeIndex > 0 ? activeIndex - 1 : items.length - 1);
+      return;
+    }
+    if (e.key === 'Escape') {
+      closeResults();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(timer);
+      if (activeIndex >= 0 && items[activeIndex]) {
+        openPerson(items[activeIndex]);
+        return;
+      }
+      submitFilters(true);
+    }
+  });
+
+  resultsBox.addEventListener('mouseenter', function () { pointerInResults = true; });
+  resultsBox.addEventListener('mouseleave', function () { pointerInResults = false; });
+
+  document.addEventListener('click', function (e) {
+    if (!box.contains(e.target)) closeResults();
+  });
+
+  Array.prototype.forEach.call(form.querySelectorAll('.js-live-filter'), function (sel) {
+    sel.addEventListener('change', function () {
+      clearTimeout(timer);
+      submitFilters(true);
+    });
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      input.value = '';
+      clearBtn.style.display = 'none';
+      closeResults();
+      clearTimeout(timer);
+      submitFilters(true);
+    });
+  }
+
+  if (input.value) {
+    var len = input.value.length;
+    try { input.setSelectionRange(len, len); } catch (e) {}
+    if (input.value.trim().length >= 2) fetchSuggestions();
+  }
+})();
+</script>
 {% endblock %}

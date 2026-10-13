@@ -10,6 +10,9 @@
   .aid-enrolled{background:#FEECEF;color:#B80E1C;font-weight:700;font-size:.72rem;padding:.25rem .65rem;border-radius:99px;border:1px solid #F5A8AE}
   .aid-none{background:#f1f5f9;color:#64748b;font-weight:600;font-size:.72rem;padding:.25rem .65rem;border-radius:99px}
   .aid-availed{background:#dcfce7;color:#15803d;font-weight:700;font-size:.72rem;padding:.25rem .65rem;border-radius:99px;border:1px solid #bbf7d0}
+  .class-pill{background:#e0e7ff;color:#3730a3;font-weight:500}
+  .health-pill{background:#fef2f2;color:#b91c1c;font-weight:500}
+  .tag-cell{display:flex;flex-wrap:wrap;gap:.25rem;max-width:220px}
   .citizen-search-wrap{position:relative}
   .citizen-search-icon{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;font-size:.9rem}
   .citizen-search-input{padding-left:2.15rem;padding-right:2.25rem}
@@ -22,6 +25,30 @@
   .citizen-search-hint{font-size:.72rem;color:#94a3b8;margin-top:.35rem;line-height:1.35}
   .citizen-search-hint em{font-style:normal;font-weight:600;color:#64748b}
   body.citizen-searching .panel .table-responsive{opacity:.55;transition:opacity .15s ease}
+  .citizen-name-results{
+    position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;
+    background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+    box-shadow:0 14px 36px rgba(15,23,42,.14);max-height:340px;overflow:auto;
+    display:none;
+  }
+  .citizen-name-results.open{display:block}
+  .citizen-name-item{
+    width:100%;text-align:left;border:0;border-bottom:1px solid #f1f5f9;
+    background:#fff;padding:.55rem .75rem;display:flex;align-items:center;gap:.65rem;
+    cursor:pointer;
+  }
+  .citizen-name-item:last-child{border-bottom:0}
+  .citizen-name-item:hover,.citizen-name-item.active{background:#FEECEF}
+  .citizen-name-av{
+    width:2rem;height:2rem;border-radius:99px;background:#FEECEF;color:#B80E1C;
+    font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  .citizen-name-body{min-width:0;flex:1}
+  .citizen-name-title{display:block;font-size:.84rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .citizen-name-meta{display:block;font-size:.7rem;color:#64748b;margin-top:.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .citizen-name-id{font-size:.7rem;color:#475569;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;flex:0 0 auto}
+  .citizen-name-empty,.citizen-name-more{padding:.65rem .75rem;font-size:.75rem;color:#64748b}
+  .citizen-name-more{border-top:1px solid #f1f5f9;background:#f8fafc}
 </style>
 
 <div class="page-hdr">
@@ -30,7 +57,7 @@
     <small class="text-muted">Master list of registered citizens / residents</small>
   </div>
   <div class="d-flex gap-2 flex-wrap">
-    <a href="{% url 'citizens:export_excel' %}?q={{ q|urlencode }}&amp;class={{ cls|urlencode }}&amp;status={{ status|urlencode }}&amp;barangay={{ barangay|urlencode }}&amp;aid={{ aid|urlencode }}&amp;sex={{ sex|urlencode }}"
+    <a href="{% url 'citizens:export_excel' %}?q={{ q|urlencode }}&amp;group={{ group|urlencode }}&amp;health={{ health|urlencode }}&amp;status={{ status|urlencode }}&amp;barangay={{ barangay|urlencode }}&amp;aid={{ aid|urlencode }}&amp;sex={{ sex|urlencode }}"
        class="btn btn-outline-success"
        title="Download the current filtered list as Excel">
       <i class="bi bi-file-earmark-excel"></i>
@@ -82,33 +109,47 @@
 <div class="panel mb-3">
   <div class="p-3">
     <form method="get" id="citizenFilterForm" class="row g-2 align-items-end">
-      <div class="col-md-3">
+      <div class="col-12">
         <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569" for="citizenSearchInput">
-          Search all columns
+          Search by name
         </label>
-        <div class="citizen-search-wrap">
+        <div class="citizen-search-wrap" id="citizenSearchBox"
+             data-search-url="{% url 'citizens:search' %}">
           <i class="bi bi-search citizen-search-icon" aria-hidden="true"></i>
           <input type="search" name="q" id="citizenSearchInput" value="{{ q }}"
                  class="form-control citizen-search-input"
-                 placeholder="Name, ID, barangay, contact, sex, status, class…"
+                 placeholder="Type any part of the name — first, middle, last, or suffix"
                  autocomplete="off" autofocus
-                 aria-describedby="citizenSearchHint">
+                 role="combobox" aria-expanded="false" aria-controls="citizenSearchResults"
+                 aria-autocomplete="list" aria-describedby="citizenSearchHint">
           <button type="button" class="citizen-search-clear" id="citizenSearchClear"
                   title="Clear search" aria-label="Clear search"
                   style="{% if not q %}display:none{% endif %}">
             <i class="bi bi-x-lg"></i>
           </button>
+          <div id="citizenSearchResults" class="citizen-name-results" role="listbox"></div>
         </div>
         <div id="citizenSearchHint" class="citizen-search-hint">
-          Searches every field. Use multiple words (e.g. <em>Juan Santos</em>). Results update as you type.
+          Searches the whole registry. Match any name part, in any order
+          (for example <em>Angela Grace Abad</em> or <em>Abad, Angela</em>).
+          Choose a name, or press Enter to filter the list.
         </div>
       </div>
       <div class="col-md-2">
-        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Vulnerable Group / Class</label>
-        <select name="class" class="form-select js-live-filter">
-          <option value="">All Classes</option>
-          {% for c in classes %}
-          <option value="{{ c }}" {% if cls == c %}selected{% endif %}>{{ c }}</option>
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Vulnerable Group</label>
+        <select name="group" class="form-select js-live-filter">
+          <option value="">All groups</option>
+          {% for item in group_options %}
+          <option value="{{ item.code }}" {% if group == item.code %}selected{% endif %}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" style="font-size:.75rem;font-weight:600;color:#475569">Health Condition</label>
+        <select name="health" class="form-select js-live-filter">
+          <option value="">All conditions</option>
+          {% for item in health_options %}
+          <option value="{{ item.code }}" {% if health == item.code %}selected{% endif %}>{{ item.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -159,7 +200,8 @@
           <th>Name</th>
           <th>Sex</th>
           <th>Birth Date</th>
-          <th>Class</th>
+          <th>Vulnerable Group</th>
+          <th>Health Condition</th>
           <th>Barangay</th>
           <th>Contact</th>
           <th>Status</th>
@@ -174,17 +216,28 @@
           <td><span class="reg-no">{{ c.registry_no|default:"—" }}</span></td>
           <td>
             <a href="{% url 'citizens:detail' c.pk %}" class="fw-semibold text-decoration-none">
-              {{ c.last_name }}, {{ c.first_name }}{% if c.middle_name %} {{ c.middle_name|slice:":1" }}.{% endif %}{% if c.suffix %} {{ c.suffix }}{% endif %}
+              {{ c.last_name }}, {{ c.first_name }}{% if c.middle_name %} {{ c.middle_name }}{% endif %}{% if c.suffix %} {{ c.suffix }}{% endif %}
             </a>
           </td>
           <td>{{ c.get_sex_display|default:"—" }}</td>
           <td>{{ c.date_of_birth|default:"—" }}</td>
           <td>
-            {% if c.derived_class %}
-            <span class="badge" style="background:#e0e7ff;color:#3730a3;font-weight:500">{{ c.derived_class }}</span>
-            {% else %}
-            <span class="text-muted">—</span>
-            {% endif %}
+            <div class="tag-cell">
+              {% for label in c.group_labels %}
+              <span class="badge class-pill">{{ label }}</span>
+              {% empty %}
+              <span class="text-muted">—</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td>
+            <div class="tag-cell">
+              {% for label in c.health_label_list %}
+              <span class="badge health-pill">{{ label }}</span>
+              {% empty %}
+              <span class="text-muted">—</span>
+              {% endfor %}
+            </div>
           </td>
           <td>{{ c.barangay|default:"—" }}</td>
           <td>{{ c.contact_number|default:"—" }}</td>
@@ -211,7 +264,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="11" class="text-center text-muted py-5">
+          <td colspan="12" class="text-center text-muted py-5">
             No citizens found.
             <a href="{% url 'citizens:create' %}">Register the first citizen</a>.
           </td>
@@ -229,12 +282,12 @@
       <ul class="pagination pagination-sm mb-0">
         {% if page_obj.has_previous %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&status={{ status|urlencode }}&barangay={{ barangay|urlencode }}&aid={{ aid|urlencode }}&sex={{ sex|urlencode }}&class={{ cls|urlencode }}">Prev</a>
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&status={{ status|urlencode }}&barangay={{ barangay|urlencode }}&aid={{ aid|urlencode }}&sex={{ sex|urlencode }}&group={{ group|urlencode }}&health={{ health|urlencode }}">Prev</a>
           </li>
         {% endif %}
         {% if page_obj.has_next %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&status={{ status|urlencode }}&barangay={{ barangay|urlencode }}&aid={{ aid|urlencode }}&sex={{ sex|urlencode }}&class={{ cls|urlencode }}">Next</a>
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&status={{ status|urlencode }}&barangay={{ barangay|urlencode }}&aid={{ aid|urlencode }}&sex={{ sex|urlencode }}&group={{ group|urlencode }}&health={{ health|urlencode }}">Next</a>
           </li>
         {% endif %}
       </ul>
@@ -247,41 +300,26 @@
   var form = document.getElementById('citizenFilterForm');
   var input = document.getElementById('citizenSearchInput');
   var clearBtn = document.getElementById('citizenSearchClear');
-  if (!form || !input) return;
+  var box = document.getElementById('citizenSearchBox');
+  var resultsBox = document.getElementById('citizenSearchResults');
+  if (!form || !input || !box || !resultsBox) return;
 
+  var searchUrl = box.getAttribute('data-search-url') || '';
   var timer = null;
+  var suggestTimer = null;
+  var suggestAbort = null;
   var lastSubmitted = (input.value || '').trim();
-  var tableBody = document.querySelector('.panel .table tbody');
-
-  function filterLocalRows(raw) {
-    if (!tableBody) return;
-    var tokens = (raw || '').toLowerCase().split(/\s+/).filter(Boolean);
-    var rows = tableBody.querySelectorAll('tr');
-    for (var i = 0; i < rows.length; i++) {
-      var row = rows[i];
-      if (row.querySelector('td[colspan]')) continue;
-      if (!tokens.length) {
-        row.style.display = '';
-        continue;
-      }
-      var text = (row.textContent || '').toLowerCase();
-      var ok = true;
-      for (var t = 0; t < tokens.length; t++) {
-        if (text.indexOf(tokens[t]) === -1) { ok = false; break; }
-      }
-      row.style.display = ok ? '' : 'none';
-    }
-  }
+  var items = [];
+  var activeIndex = -1;
+  var pointerInResults = false;
 
   function submitFilters(force) {
     var current = (input.value || '').trim();
-    // Skip duplicate submits from typing debounce when the query did not change.
     if (!force && current === lastSubmitted) return;
-    // Avoid full-registry hits on a single character; local filter still runs.
     if (!force && current.length === 1) return;
     lastSubmitted = current;
+    closeResults();
     document.body.classList.add('citizen-searching');
-    // Drop empty filter params so the URL stays clean.
     Array.prototype.forEach.call(form.elements, function (el) {
       if (!el.name || el.type === 'submit' || el.type === 'button') return;
       if ((el.value || '') === '' && el.name !== 'q') el.disabled = true;
@@ -291,24 +329,162 @@
 
   function scheduleSearch() {
     clearTimeout(timer);
-    timer = setTimeout(function () { submitFilters(false); }, 350);
+    timer = setTimeout(function () {
+      if (pointerInResults || activeIndex >= 0) return;
+      submitFilters(false);
+    }, 800);
+  }
+
+  function closeResults() {
+    resultsBox.classList.remove('open');
+    resultsBox.innerHTML = '';
+    input.setAttribute('aria-expanded', 'false');
+    items = [];
+    activeIndex = -1;
+  }
+
+  function initials(name) {
+    var parts = (name || '').replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  }
+
+  function setActive(index) {
+    var buttons = resultsBox.querySelectorAll('.citizen-name-item');
+    activeIndex = index;
+    for (var i = 0; i < buttons.length; i++) {
+      if (i === index) buttons[i].classList.add('active');
+      else buttons[i].classList.remove('active');
+    }
+    if (index >= 0 && buttons[index]) {
+      buttons[index].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function openPerson(item) {
+    if (!item || !item.url) return;
+    clearTimeout(timer);
+    clearTimeout(suggestTimer);
+    window.location.href = item.url;
+  }
+
+  function renderResults(list, total) {
+    resultsBox.innerHTML = '';
+    items = list || [];
+    activeIndex = -1;
+    if (!items.length) {
+      resultsBox.innerHTML = '<div class="citizen-name-empty">No names match that search.</div>';
+      resultsBox.classList.add('open');
+      input.setAttribute('aria-expanded', 'true');
+      return;
+    }
+    items.forEach(function (item, idx) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'citizen-name-item';
+      btn.setAttribute('role', 'option');
+      btn.innerHTML =
+        '<span class="citizen-name-av"></span>' +
+        '<span class="citizen-name-body"><span class="citizen-name-title"></span>' +
+        '<span class="citizen-name-meta"></span></span>' +
+        '<span class="citizen-name-id"></span>';
+      btn.querySelector('.citizen-name-av').textContent = initials(item.name);
+      btn.querySelector('.citizen-name-title').textContent = item.name || '';
+      var meta = [];
+      if (item.sex) meta.push(item.sex);
+      meta.push(item.barangay || 'No barangay');
+      btn.querySelector('.citizen-name-meta').textContent = meta.join(' · ');
+      btn.querySelector('.citizen-name-id').textContent = item.registry_no || '';
+      function choose(e) {
+        e.preventDefault();
+        openPerson(item);
+      }
+      btn.addEventListener('mousedown', choose);
+      btn.addEventListener('click', choose);
+      btn.addEventListener('mouseenter', function () { setActive(idx); });
+      resultsBox.appendChild(btn);
+    });
+    if (total > items.length) {
+      var more = document.createElement('div');
+      more.className = 'citizen-name-more';
+      more.textContent = 'Showing ' + items.length + ' of ' + total +
+        '. Keep typing, or press Enter to filter the full list.';
+      resultsBox.appendChild(more);
+    }
+    resultsBox.classList.add('open');
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function fetchSuggestions() {
+    var q = (input.value || '').trim();
+    if (!searchUrl || q.length < 2) {
+      closeResults();
+      return;
+    }
+    if (suggestAbort) suggestAbort.abort();
+    suggestAbort = new AbortController();
+    var url = searchUrl + (searchUrl.indexOf('?') === -1 ? '?' : '&') +
+      'q=' + encodeURIComponent(q) + '&limit=8';
+    fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: suggestAbort.signal
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if ((input.value || '').trim() !== q) return;
+      renderResults((data && data.results) || [], (data && data.total) || 0);
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return;
+    });
+  }
+
+  function scheduleSuggestions() {
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(fetchSuggestions, 180);
   }
 
   input.addEventListener('input', function () {
     if (clearBtn) {
       clearBtn.style.display = (input.value || '').length ? 'inline-flex' : 'none';
     }
-    // Instant filter on the current page, then debounced full-registry search.
-    filterLocalRows(input.value);
+    activeIndex = -1;
+    scheduleSuggestions();
     scheduleSearch();
   });
 
   input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' && items.length) {
+      e.preventDefault();
+      clearTimeout(timer);
+      setActive(activeIndex < items.length - 1 ? activeIndex + 1 : 0);
+      return;
+    }
+    if (e.key === 'ArrowUp' && items.length) {
+      e.preventDefault();
+      clearTimeout(timer);
+      setActive(activeIndex > 0 ? activeIndex - 1 : items.length - 1);
+      return;
+    }
+    if (e.key === 'Escape') {
+      closeResults();
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       clearTimeout(timer);
+      if (activeIndex >= 0 && items[activeIndex]) {
+        openPerson(items[activeIndex]);
+        return;
+      }
       submitFilters(true);
     }
+  });
+
+  resultsBox.addEventListener('mouseenter', function () { pointerInResults = true; });
+  resultsBox.addEventListener('mouseleave', function () { pointerInResults = false; });
+
+  document.addEventListener('click', function (e) {
+    if (!box.contains(e.target)) closeResults();
   });
 
   Array.prototype.forEach.call(form.querySelectorAll('.js-live-filter'), function (sel) {
@@ -322,15 +498,16 @@
     clearBtn.addEventListener('click', function () {
       input.value = '';
       clearBtn.style.display = 'none';
+      closeResults();
       clearTimeout(timer);
       submitFilters(true);
     });
   }
 
-  // Keep caret at end after autofocus when a query is already present.
   if (input.value) {
     var len = input.value.length;
     try { input.setSelectionRange(len, len); } catch (e) {}
+    if (input.value.trim().length >= 2) fetchSuggestions();
   }
 })();
 </script>

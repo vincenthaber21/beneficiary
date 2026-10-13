@@ -4,7 +4,7 @@ import re
 from types import SimpleNamespace
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.db.models import Q, Count
+from django.db.models import Count
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
@@ -25,6 +25,11 @@ from .forms import (
     search_beneficiaries,
 )
 from .household import household_cooldown, family_block_for
+from .search import (
+    filter_beneficiaries_by_query,
+    order_beneficiaries_for_query,
+    search_beneficiary_matches,
+)
 
 
 def _get_family_groups(beneficiaries):
@@ -115,27 +120,31 @@ def _parse_list_date(value):
 
 def _filtered_beneficiary_queryset(request):
     """Apply list-page filters and return
-    (queryset, q, cls, fam, claim, sex, date_from, date_to)."""
+    (queryset, q, group, fam, claim, sex, date_from, date_to)."""
+    from citizens.models import Citizen, VulnerableGroup
+
     q = request.GET.get("q", "").strip()
-    cls = request.GET.get("class", "")
+    group = request.GET.get("group", "").strip()
     fam = request.GET.get("family", "")
     claim = request.GET.get("claim", "").strip()
     sex = request.GET.get("sex", "").strip().upper()
     if sex not in ("M", "F"):
         sex = ""
+    group_codes = set(VulnerableGroup.objects.values_list("code", flat=True))
+    if not group_codes:
+        group_codes = {code for code, _label in Citizen.VULNERABLE_GROUP_CHOICES}
+    if group not in group_codes:
+        group = ""
     date_from = _parse_list_date(request.GET.get("date_from"))
     date_to = _parse_list_date(request.GET.get("date_to"))
     if date_from and date_to and date_from > date_to:
         date_from, date_to = date_to, date_from
     qs = Beneficiary.objects.select_related("citizen").all()
     if q:
-        qs = qs.filter(
-            Q(last_name__icontains=q) | Q(first_name__icontains=q) |
-            Q(rfid_id__icontains=q) | Q(contact_number__icontains=q) |
-            Q(citizen__registry_no__icontains=q)
-        )
-    if cls:
-        qs = qs.filter(beneficiary_class=cls)
+        qs = filter_beneficiaries_by_query(qs, q)
+        qs = order_beneficiaries_for_query(qs, q)
+    if group:
+        qs = qs.filter(citizen__vulnerable_groups__icontains=f'"{group}"')
     if sex:
         qs = qs.filter(sex=sex)
     if date_from:
@@ -166,7 +175,21 @@ def _filtered_beneficiary_queryset(request):
     elif fam == "individual":
         qs = qs.exclude(pk__in=linked_ids)
 
-    return qs, q, cls, fam, claim, sex, date_from, date_to
+    return qs, q, group, fam, claim, sex, date_from, date_to
+
+
+def _attach_group_labels(beneficiaries):
+    """Show the linked citizen's vulnerable groups instead of beneficiary class."""
+    from citizens.models import Citizen, VulnerableGroup, catalog_lookup
+
+    lookup = catalog_lookup(VulnerableGroup, Citizen.VULNERABLE_GROUP_CHOICES)
+    for b in beneficiaries:
+        codes = []
+        citizen = b.citizen if b.citizen_id else None
+        if citizen is not None:
+            codes = citizen.vulnerable_groups or []
+        b.group_labels = [lookup.get(code, code) for code in codes]
+    return beneficiaries
 
 
 def _annotate_claim_status(beneficiaries):
@@ -185,13 +208,22 @@ def _annotate_claim_status(beneficiaries):
 
 @staff_required
 def beneficiary_list(request):
-    qs, q, cls, fam, claim, sex, date_from, date_to = _filtered_beneficiary_queryset(request)
-    beneficiaries = _annotate_claim_status(_attach_eligibility(qs))
+    from citizens.models import VulnerableGroup
+
+    qs, q, group, fam, claim, sex, date_from, date_to = _filtered_beneficiary_queryset(request)
+    beneficiaries = _attach_group_labels(_annotate_claim_status(_attach_eligibility(qs)))
 
     family_groups = _get_family_groups(beneficiaries)
     family_count = sum(1 for g in family_groups if g["is_family"])
     received_count = sum(1 for b in beneficiaries if b.has_received)
     not_claimed_count = sum(1 for b in beneficiaries if not b.has_received)
+    group_options = list(
+        VulnerableGroup.objects.filter(is_active=True).order_by("sort_order", "name")
+    )
+    if group and not any(item.code == group for item in group_options):
+        selected = VulnerableGroup.objects.filter(code=group).first()
+        if selected:
+            group_options.insert(0, selected)
     return render(request, "beneficiaries/list.html", {
         "beneficiaries": beneficiaries,
         "family_groups": family_groups,
@@ -199,10 +231,10 @@ def beneficiary_list(request):
         "family_count": family_count,
         "claimed_count": received_count,
         "not_claimed_count": not_claimed_count,
-        "q": q, "cls": cls, "fam": fam, "claim": claim, "sex": sex,
+        "q": q, "group": group, "fam": fam, "claim": claim, "sex": sex,
         "date_from": date_from.isoformat() if date_from else "",
         "date_to": date_to.isoformat() if date_to else "",
-        "classes": VALID_CLASSES,
+        "group_options": group_options,
     })
 
 
@@ -262,8 +294,8 @@ def beneficiary_export_excel(request):
         messages.error(request, "Excel export requires openpyxl. Run: pip install openpyxl")
         return redirect("beneficiaries:list")
 
-    qs, q, cls, fam, claim, sex, date_from, date_to = _filtered_beneficiary_queryset(request)
-    beneficiaries = _annotate_claim_status(_attach_eligibility(qs))
+    qs, q, group, fam, claim, sex, date_from, date_to = _filtered_beneficiary_queryset(request)
+    beneficiaries = _attach_group_labels(_annotate_claim_status(_attach_eligibility(qs)))
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -271,7 +303,7 @@ def beneficiary_export_excel(request):
 
     headers = [
         "ID", "Last Name", "First Name", "Middle Name", "Sex",
-        "Class", "Monthly Income", "Eligibility", "Eligibility Reason",
+        "Vulnerable Group", "Monthly Income", "Eligibility", "Eligibility Reason",
         "Claim Status", "Claims Count",
         "Contact", "Address", "Barangay", "Municipality", "Province",
         "RFID / ID", "Prior Grant Date", "Date Registered", "Status", "Notes",
@@ -301,7 +333,7 @@ def beneficiary_export_excel(request):
             b.first_name,
             b.middle_name or "",
             sex_labels.get(b.sex, b.sex or ""),
-            b.beneficiary_class,
+            ", ".join(b.group_labels),
             float(b.monthly_income),
             "Qualified" if elig.get("qualified") else "Not Qualified",
             elig.get("reason", ""),
@@ -345,8 +377,8 @@ def beneficiary_export_excel(request):
         parts.append("male")
     elif sex == "F":
         parts.append("female")
-    if cls:
-        parts.append(cls.replace(" ", "_")[:30])
+    if group:
+        parts.append(group[:30])
     if fam:
         parts.append(fam)
     if q:
@@ -523,6 +555,22 @@ def beneficiary_update(request, pk):
         "enrollable_citizen_count": available_citizen_count(ben.pk),
         "beneficiary_search_url": reverse("beneficiaries:search"),
         "exclude_beneficiary_pk": ben.pk,
+    })
+
+
+@staff_required
+def beneficiary_name_search(request):
+    """JSON name suggestions for the beneficiaries list."""
+    q = request.GET.get("q", "").strip()
+    raw_limit = request.GET.get("limit", "").strip()
+    limit = int(raw_limit) if raw_limit.isdigit() else 8
+    results, total = search_beneficiary_matches(q, limit=limit)
+    return JsonResponse({
+        "ok": True,
+        "query": q,
+        "count": len(results),
+        "total": total,
+        "results": results,
     })
 
 

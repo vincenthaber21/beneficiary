@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
+
 from django.core.cache import cache
 from django.db.models import Case, CharField, IntegerField, Q, Value, When
 from django.db.models.functions import Cast
+from django.urls import reverse
 
 from .models import Citizen, HealthCondition, VulnerableGroup, catalog_choices
 
@@ -41,6 +45,30 @@ _TEXT_FIELDS = (
     "status",
     "sex",
 )
+
+_NAME_FIELDS = ("last_name", "first_name", "middle_name", "suffix")
+_TOKEN_SPLIT = re.compile(r"[,./]+")
+
+
+def _query_tokens(query):
+    """Split a typed name into words. Commas and periods are separators."""
+    cleaned = _TOKEN_SPLIT.sub(" ", (query or "").strip())
+    return [token for token in cleaned.split() if token]
+
+
+def _person_label(citizen):
+    """Full registry name: Last, First Middle Suffix."""
+    middle = f" {citizen.middle_name}" if citizen.middle_name else ""
+    suffix = f" {citizen.suffix}" if citizen.suffix else ""
+    return f"{citizen.last_name}, {citizen.first_name}{middle}{suffix}".strip()
+
+
+def _name_match(token):
+    """Match one word against every name part (first, middle, last, suffix)."""
+    return _or_combine([
+        Q(**{f"{field}__icontains": token}) for field in _NAME_FIELDS
+    ])
+
 
 _CHOICE_FIELDS = (
     ("sex", Citizen.SEX_CHOICES),
@@ -137,15 +165,12 @@ def filter_citizens_by_query(qs, query):
     """
     Filter a Citizen queryset by free-text ``query``.
 
-    Multi-word queries are AND across tokens (each word must match somewhere),
-    so "Juan Santos" finds Juan Santos even when the words are in different columns.
-    Short tokens use prefix matching on identity fields for speed.
+    Every word is matched on its own, so "Angela Grace Abad" finds that person
+    even when the words sit in first, middle, and last name. A lone 1–2 character
+    query stays a prefix match so it stays fast. Inside a longer name, short
+    words such as "de" and "la" still match anywhere in the name.
     """
-    q = (query or "").strip()
-    if not q:
-        return qs
-
-    tokens = [t for t in q.split() if t]
+    tokens = _query_tokens(query)
     if not tokens:
         return qs
 
@@ -159,79 +184,111 @@ def filter_citizens_by_query(qs, query):
         )
 
     for token in tokens:
-        if len(token) <= 2:
+        if len(token) <= 2 and len(tokens) == 1:
             qs = qs.filter(_identity_prefix_match(token))
+        elif len(token) <= 2:
+            qs = qs.filter(_name_match(token))
         else:
             qs = qs.filter(_token_match(token, include_dates=needs_dates))
     return qs
 
 
-def search_citizens(query, exclude_pk=None, limit=12):
-    """
-    Ranked citizen search by name / registry no. / RFID / contact.
-    Short queries use prefix matching to keep results usable.
-    """
-    q = (query or "").strip()
-    if len(q) < 2:
-        return []
+def _any_token(lookup, tokens):
+    combined = Q(**{lookup: tokens[0]})
+    for token in tokens[1:]:
+        combined |= Q(**{lookup: token})
+    return combined
 
+
+def order_citizens_for_query(qs, query):
+    """Put the closest name matches first (surname, then given name)."""
+    tokens = _query_tokens(query)
+    if not tokens:
+        return qs.order_by("last_name", "first_name", "pk")
+
+    return qs.annotate(
+        name_rank=Case(
+            When(_any_token("last_name__iexact", tokens), then=Value(0)),
+            When(_any_token("last_name__istartswith", tokens), then=Value(1)),
+            When(_any_token("first_name__istartswith", tokens), then=Value(2)),
+            When(_any_token("middle_name__istartswith", tokens), then=Value(3)),
+            When(_any_token("first_name__icontains", tokens), then=Value(4)),
+            When(_any_token("middle_name__icontains", tokens), then=Value(5)),
+            default=Value(8),
+            output_field=IntegerField(),
+        )
+    ).order_by("name_rank", "last_name", "first_name", "pk")
+
+
+def search_citizen_matches(query, exclude_pk=None, limit=12):
+    """
+    Ranked matches for a typed name.
+
+    Each word is matched against first, middle, last, and suffix, so
+    "Angela Grace Abad" finds that citizen. Also matches registry no.,
+    RFID, and contact when the word is long enough.
+
+    Returns ``(results, total)``. ``results`` is capped at ``limit``.
+    """
+    tokens = _query_tokens(query)
+    if len("".join(tokens)) < 2:
+        return [], 0
+
+    limit = max(1, min(int(limit or 12), 20))
     epoch = cache.get("citizen:search_epoch", 0)
-    cache_key = (
-        f"citizen:search:{epoch}:{exclude_pk or 0}:{q.casefold()}:{limit}"
-    )
+    digest = hashlib.sha256(" ".join(tokens).casefold().encode()).hexdigest()[:20]
+    cache_key = f"citizen:search:v3:{epoch}:{exclude_pk or 0}:{digest}:{limit}"
     cached = cache.get(cache_key)
     if cached is not None:
-        return cached
+        return cached["results"], cached["total"]
 
     qs = Citizen.objects.all()
     if exclude_pk:
         qs = qs.exclude(pk=exclude_pk)
 
-    if len(q) <= 2:
-        match = (
-            Q(last_name__istartswith=q)
-            | Q(first_name__istartswith=q)
-            | Q(registry_no__istartswith=q)
+    if len(tokens) == 1 and len(tokens[0]) <= 2:
+        token = tokens[0]
+        qs = qs.filter(
+            Q(last_name__istartswith=token)
+            | Q(first_name__istartswith=token)
+            | Q(middle_name__istartswith=token)
+            | Q(suffix__istartswith=token)
+            | Q(registry_no__istartswith=token)
         )
     else:
-        match = (
-            Q(last_name__icontains=q)
-            | Q(first_name__icontains=q)
-            | Q(middle_name__icontains=q)
-            | Q(registry_no__icontains=q)
-            | Q(rfid_tag__icontains=q)
-            | Q(contact_number__icontains=q)
-        )
+        for token in tokens:
+            if len(token) <= 2:
+                qs = qs.filter(_name_match(token))
+            else:
+                qs = qs.filter(
+                    _name_match(token)
+                    | Q(registry_no__icontains=token)
+                    | Q(rfid_tag__icontains=token)
+                    | Q(contact_number__icontains=token)
+                )
 
-    qs = (
-        qs.filter(match)
-        .annotate(
-            rank=Case(
-                When(registry_no__iexact=q, then=Value(0)),
-                When(registry_no__istartswith=q, then=Value(1)),
-                When(last_name__istartswith=q, then=Value(2)),
-                When(first_name__istartswith=q, then=Value(3)),
-                When(last_name__icontains=q, then=Value(4)),
-                When(first_name__icontains=q, then=Value(5)),
-                default=Value(9),
-                output_field=IntegerField(),
-            )
-        )
-        .order_by("rank", "last_name", "first_name")[:limit]
-    )
-
+    qs = order_citizens_for_query(qs, " ".join(tokens))
+    total = qs.count()
     results = []
-    for c in qs:
-        mid = f" {c.middle_name}" if c.middle_name else ""
-        name = f"{c.last_name}, {c.first_name}{mid}"
+    for citizen in qs[:limit]:
+        name = _person_label(citizen)
         results.append({
-            "id": c.pk,
+            "id": citizen.pk,
             "name": name,
-            "label": f"{c.registry_no or '—'} — {name}",
-            "registry_no": c.registry_no or "",
-            "barangay": c.barangay or "",
-            "sex": c.get_sex_display() if c.sex else "",
-            "full_name": c.full_name,
+            "label": f"{citizen.registry_no or '—'} — {name}",
+            "registry_no": citizen.registry_no or "",
+            "barangay": citizen.barangay or "",
+            "sex": citizen.get_sex_display() if citizen.sex else "",
+            "full_name": citizen.full_name,
+            "url": reverse("citizens:detail", args=[citizen.pk]),
         })
-    cache.set(cache_key, results, _SEARCH_CACHE_TTL)
+    cache.set(cache_key, {"results": results, "total": total}, _SEARCH_CACHE_TTL)
+    return results, total
+
+
+def search_citizens(query, exclude_pk=None, limit=12):
+    """Ranked citizen search by name / registry no. / RFID / contact."""
+    results, _total = search_citizen_matches(
+        query, exclude_pk=exclude_pk, limit=limit
+    )
     return results

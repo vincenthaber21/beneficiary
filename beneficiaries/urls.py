@@ -8,6 +8,7 @@ urlpatterns = [
     path("add/", views.beneficiary_create, name="create"),
     path("auto-enroll/", views.beneficiary_auto_enroll, name="auto_enroll"),
     path("search/", views.beneficiary_search, name="search"),
+    path("name-search/", views.beneficiary_name_search, name="name_search"),
     path("citizen-lookup/", views.citizen_lookup, name="citizen_lookup"),
     path("export/excel/", views.beneficiary_export_excel, name="export_excel"),
     path("id-cards/", views.beneficiary_id_cards_all, name="id_cards_all"),

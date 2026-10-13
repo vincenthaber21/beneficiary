@@ -11,7 +11,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from beneficiaries.models import class_from_citizen
 from beneficiaries.views import _qr_svg
 from checker.logic import VALID_CLASSES
 from utils import staff_required
@@ -23,8 +22,13 @@ from .models import (
     HealthCondition,
     VulnerableGroup,
     add_catalog_item,
+    catalog_lookup,
 )
-from .search import filter_citizens_by_query, search_citizens
+from .search import (
+    filter_citizens_by_query,
+    order_citizens_for_query,
+    search_citizen_matches,
+)
 
 _CREATE_INITIAL = {
     "municipality": "Bacnotan",
@@ -127,6 +131,18 @@ def _filtered_citizen_queryset(request):
     cls = request.GET.get("class", "").strip()
     if cls not in VALID_CLASSES:
         cls = ""
+    group = request.GET.get("group", "").strip()
+    health = request.GET.get("health", "").strip()
+    group_codes = set(VulnerableGroup.objects.values_list("code", flat=True))
+    health_codes = set(HealthCondition.objects.values_list("code", flat=True))
+    if not group_codes:
+        group_codes = {code for code, _label in Citizen.VULNERABLE_GROUP_CHOICES}
+    if not health_codes:
+        health_codes = {code for code, _label in Citizen.HEALTH_CONDITION_CHOICES}
+    if group not in group_codes:
+        group = ""
+    if health not in health_codes:
+        health = ""
     if sex not in ("M", "F"):
         sex = ""
 
@@ -141,6 +157,10 @@ def _filtered_citizen_queryset(request):
         qs = qs.filter(sex=sex)
     if cls:
         qs = _filter_by_vulnerable_class(qs, cls)
+    if group:
+        qs = qs.filter(vulnerable_groups__icontains=f'"{group}"')
+    if health:
+        qs = qs.filter(health_conditions__icontains=f'"{health}"')
     if aid == "enrolled":
         qs = qs.filter(beneficiary__isnull=False)
     elif aid == "not_enrolled":
@@ -159,6 +179,8 @@ def _filtered_citizen_queryset(request):
         "aid": aid,
         "sex": sex,
         "cls": cls,
+        "group": group,
+        "health": health,
     }
     return qs, filters
 
@@ -175,19 +197,43 @@ def citizen_list(request):
     )
 
     enrolled_count = Citizen.objects.filter(beneficiary__isnull=False).count()
+    qs = order_citizens_for_query(qs, filters["q"])
     total = qs.count()
     paginator = Paginator(qs, 50)
     page_obj = paginator.get_page(request.GET.get("page"))
 
     citizens = list(page_obj.object_list)
+    group_lookup = catalog_lookup(VulnerableGroup, Citizen.VULNERABLE_GROUP_CHOICES)
+    health_lookup = catalog_lookup(HealthCondition, Citizen.HEALTH_CONDITION_CHOICES)
     for c in citizens:
-        c.derived_class = class_from_citizen(c)
+        c.group_labels = [
+            group_lookup.get(code, code) for code in (c.vulnerable_groups or [])
+        ]
+        c.health_label_list = [
+            health_lookup.get(code, code) for code in (c.health_conditions or [])
+        ]
+
+    group_options = list(
+        VulnerableGroup.objects.filter(is_active=True).order_by("sort_order", "name")
+    )
+    health_options = list(
+        HealthCondition.objects.filter(is_active=True).order_by("sort_order", "name")
+    )
+    if filters["group"] and not any(item.code == filters["group"] for item in group_options):
+        selected = VulnerableGroup.objects.filter(code=filters["group"]).first()
+        if selected:
+            group_options.insert(0, selected)
+    if filters["health"] and not any(item.code == filters["health"] for item in health_options):
+        selected = HealthCondition.objects.filter(code=filters["health"]).first()
+        if selected:
+            health_options.insert(0, selected)
 
     context = {
         "citizens": citizens,
         "page_obj": page_obj,
         "total": total,
-        "classes": VALID_CLASSES,
+        "group_options": group_options,
+        "health_options": health_options,
         "barangays": barangays,
         "status_choices": Citizen.STATUS_CHOICES,
         "count_active": Citizen.objects.filter(status="active").count(),
@@ -219,7 +265,7 @@ def citizen_export_excel(request):
     headers = [
         "Citizen ID", "Last Name", "First Name", "Middle Name", "Suffix",
         "Sex", "Birth Date", "Place of Birth", "Civil Status",
-        "Class", "Vulnerable Groups", "Occupation 1", "Occupation 2", "Occupation 3",
+        "Vulnerable Groups", "Occupation 1", "Occupation 2", "Occupation 3",
         "Contact", "Email", "Address", "Barangay", "Municipality", "Province", "Zip Code",
         "PhilSys ID", "Voter ID", "Other ID Type", "Other ID Number", "RFID Tag",
         "Education", "Income Range", "Health Conditions", "Religion",
@@ -268,7 +314,6 @@ def citizen_export_excel(request):
             c.date_of_birth.isoformat() if c.date_of_birth else "",
             c.place_of_birth or "",
             civil_labels.get(c.civil_status, c.civil_status or ""),
-            class_from_citizen(c) or "",
             ", ".join(c.vulnerable_labels()),
             occ_labels.get(c.occupation_1, c.occupation_1 or ""),
             occ_labels.get(c.occupation_2, c.occupation_2 or ""),
@@ -316,6 +361,10 @@ def citizen_export_excel(request):
         parts.append(filters["aid"])
     if filters["cls"]:
         parts.append(filters["cls"].replace(" ", "_")[:30])
+    if filters["group"]:
+        parts.append(filters["group"][:30])
+    if filters["health"]:
+        parts.append(filters["health"][:30])
     if filters["status"]:
         parts.append(filters["status"])
     if filters["barangay"]:
@@ -384,11 +433,14 @@ def citizen_search(request):
     q = request.GET.get("q", "").strip()
     exclude = request.GET.get("exclude", "").strip()
     exclude_pk = int(exclude) if exclude.isdigit() else None
-    results = search_citizens(q, exclude_pk=exclude_pk)
+    raw_limit = request.GET.get("limit", "").strip()
+    limit = int(raw_limit) if raw_limit.isdigit() else 12
+    results, total = search_citizen_matches(q, exclude_pk=exclude_pk, limit=limit)
     return JsonResponse({
         "ok": True,
         "query": q,
         "count": len(results),
+        "total": total,
         "results": results,
     })
 
