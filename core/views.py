@@ -191,7 +191,13 @@ def dashboard(request):
 
     from beneficiaries.models import Beneficiary
     from citizens.barangays import normalize_barangay_name
-    from citizens.models import Barangay, Citizen
+    from citizens.models import (
+        Barangay,
+        Citizen,
+        VulnerableGroup,
+        catalog_choices,
+        catalog_lookup,
+    )
     from programs.models import AssistanceProgram
     from records.models import GrantRecord
 
@@ -239,9 +245,16 @@ def dashboard(request):
     total_beneficiaries = beneficiaries_qs.count()
     claimed_ids = GrantRecord.objects.filter(status="released").values("beneficiary_id")
     not_yet_claimed = beneficiaries_qs.exclude(id__in=claimed_ids).count()
-    # Male / Female = citizens in the registry by sex
-    male_count = citizens_qs.filter(sex="M").count()
-    female_count = citizens_qs.filter(sex="F").count()
+    # Male / Female cards count claimed beneficiaries (a released grant),
+    # the same rule as Beneficiaries → Claim status = Claimed.
+    claimed_people = _apply_date_range(
+        Beneficiary.objects.filter(id__in=claimed_ids),
+        "date_registered",
+        date_from,
+        date_to,
+    )
+    male_count = claimed_people.filter(sex="M").count()
+    female_count = claimed_people.filter(sex="F").count()
     vulnerable_count = (
         citizens_qs.exclude(vulnerable_groups=[])
         .exclude(vulnerable_groups__isnull=True)
@@ -261,10 +274,17 @@ def dashboard(request):
         vuln_counter.update(groups or [])
     pie_labels = []
     pie_data = []
-    for code, label in Citizen.VULNERABLE_GROUP_CHOICES:
+    label_map = catalog_lookup(VulnerableGroup, Citizen.VULNERABLE_GROUP_CHOICES)
+    seen_codes = set()
+    for code, label in catalog_choices(VulnerableGroup, Citizen.VULNERABLE_GROUP_CHOICES):
         n = vuln_counter.get(code, 0)
         if n:
             pie_labels.append(label)
+            pie_data.append(n)
+            seen_codes.add(code)
+    for code, n in vuln_counter.items():
+        if code not in seen_codes and n:
+            pie_labels.append(label_map.get(code, code))
             pie_data.append(n)
 
     bar_labels, bar_data, chart_title, chart_subtitle = _build_bar_series(
@@ -371,6 +391,8 @@ def dashboard(request):
         ),
         "filter_label": flt["filter_label"],
         "is_filtered": flt["is_filtered"],
+        "claimed_date_from": date_from.isoformat() if flt["is_filtered"] and date_from else "",
+        "claimed_date_to": date_to.isoformat() if flt["is_filtered"] and date_to else "",
         "filter_mode": flt["filter_mode"],
         "year_choices": year_choices,
         "month_choices": month_choices,

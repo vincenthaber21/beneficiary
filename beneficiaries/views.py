@@ -10,7 +10,7 @@ from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from datetime import timedelta
+from datetime import datetime, timedelta
 from utils import rfid_access_required, staff_required
 from checker.logic import evaluate, VALID_CLASSES
 from records.models import GrantRecord
@@ -103,13 +103,30 @@ def _attach_eligibility(queryset):
     return result_list
 
 
+def _parse_list_date(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
 def _filtered_beneficiary_queryset(request):
-    """Apply list-page filters (q, class, family, claim) and return
-    (queryset, q, cls, fam, claim)."""
+    """Apply list-page filters and return
+    (queryset, q, cls, fam, claim, sex, date_from, date_to)."""
     q = request.GET.get("q", "").strip()
     cls = request.GET.get("class", "")
     fam = request.GET.get("family", "")
     claim = request.GET.get("claim", "").strip()
+    sex = request.GET.get("sex", "").strip().upper()
+    if sex not in ("M", "F"):
+        sex = ""
+    date_from = _parse_list_date(request.GET.get("date_from"))
+    date_to = _parse_list_date(request.GET.get("date_to"))
+    if date_from and date_to and date_from > date_to:
+        date_from, date_to = date_to, date_from
     qs = Beneficiary.objects.select_related("citizen").all()
     if q:
         qs = qs.filter(
@@ -119,6 +136,12 @@ def _filtered_beneficiary_queryset(request):
         )
     if cls:
         qs = qs.filter(beneficiary_class=cls)
+    if sex:
+        qs = qs.filter(sex=sex)
+    if date_from:
+        qs = qs.filter(date_registered__gte=date_from)
+    if date_to:
+        qs = qs.filter(date_registered__lte=date_to)
 
     claimed_ids = set(
         GrantRecord.objects.filter(status="released")
@@ -143,7 +166,7 @@ def _filtered_beneficiary_queryset(request):
     elif fam == "individual":
         qs = qs.exclude(pk__in=linked_ids)
 
-    return qs, q, cls, fam, claim
+    return qs, q, cls, fam, claim, sex, date_from, date_to
 
 
 def _annotate_claim_status(beneficiaries):
@@ -162,7 +185,7 @@ def _annotate_claim_status(beneficiaries):
 
 @staff_required
 def beneficiary_list(request):
-    qs, q, cls, fam, claim = _filtered_beneficiary_queryset(request)
+    qs, q, cls, fam, claim, sex, date_from, date_to = _filtered_beneficiary_queryset(request)
     beneficiaries = _annotate_claim_status(_attach_eligibility(qs))
 
     family_groups = _get_family_groups(beneficiaries)
@@ -176,7 +199,9 @@ def beneficiary_list(request):
         "family_count": family_count,
         "claimed_count": received_count,
         "not_claimed_count": not_claimed_count,
-        "q": q, "cls": cls, "fam": fam, "claim": claim,
+        "q": q, "cls": cls, "fam": fam, "claim": claim, "sex": sex,
+        "date_from": date_from.isoformat() if date_from else "",
+        "date_to": date_to.isoformat() if date_to else "",
         "classes": VALID_CLASSES,
     })
 
@@ -237,7 +262,7 @@ def beneficiary_export_excel(request):
         messages.error(request, "Excel export requires openpyxl. Run: pip install openpyxl")
         return redirect("beneficiaries:list")
 
-    qs, q, cls, fam, claim = _filtered_beneficiary_queryset(request)
+    qs, q, cls, fam, claim, sex, date_from, date_to = _filtered_beneficiary_queryset(request)
     beneficiaries = _annotate_claim_status(_attach_eligibility(qs))
 
     wb = openpyxl.Workbook()
@@ -316,6 +341,10 @@ def beneficiary_export_excel(request):
         parts.append("not_claimed")
     elif claim == "claimed":
         parts.append("claimed")
+    if sex == "M":
+        parts.append("male")
+    elif sex == "F":
+        parts.append("female")
     if cls:
         parts.append(cls.replace(" ", "_")[:30])
     if fam:

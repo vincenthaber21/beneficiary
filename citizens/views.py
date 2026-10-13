@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from beneficiaries.models import class_from_citizen
 from beneficiaries.views import _qr_svg
@@ -16,7 +17,13 @@ from checker.logic import VALID_CLASSES
 from utils import staff_required
 
 from .forms import CitizenForm, CitizenFamilyFormSet, make_citizen_fingerprint_formset
-from .models import Citizen
+from .models import (
+    CatalogNameError,
+    Citizen,
+    HealthCondition,
+    VulnerableGroup,
+    add_catalog_item,
+)
 from .search import filter_citizens_by_query, search_citizens
 
 _CREATE_INITIAL = {
@@ -520,3 +527,77 @@ def citizen_delete(request, pk):
         messages.success(request, f'Citizen "{name}" removed from the registry.')
         return redirect("citizens:list")
     return render(request, "citizens/confirm_delete.html", {"citizen": citizen})
+
+
+_CATALOGS = {
+    "vulnerable": VulnerableGroup,
+    "health": HealthCondition,
+}
+
+
+def _catalog_model(kind):
+    return _CATALOGS.get(kind)
+
+
+@staff_required
+def classification_list(request):
+    """Add, show, or hide vulnerable groups and health conditions."""
+    if request.method == "POST":
+        kind = (request.POST.get("kind") or "").strip()
+        model = _catalog_model(kind)
+        action = (request.POST.get("action") or "add").strip()
+        label = "Vulnerable group" if kind == "vulnerable" else "Health condition"
+        if model is None:
+            messages.error(request, "Unknown list.")
+            return redirect("citizens:classifications")
+        if action == "add":
+            try:
+                obj, status = add_catalog_item(model, request.POST.get("name"))
+            except CatalogNameError as exc:
+                messages.error(request, str(exc))
+            else:
+                if status == "created":
+                    messages.success(request, f'{label} "{obj.name}" added.')
+                elif status == "reactivated":
+                    messages.success(request, f'{label} "{obj.name}" is available again.')
+                else:
+                    messages.info(request, f'{label} "{obj.name}" is already in the list.')
+        elif action == "toggle":
+            obj = get_object_or_404(model, code=(request.POST.get("code") or "").strip())
+            obj.is_active = not obj.is_active
+            obj.save(update_fields=["is_active", "updated_at"])
+            state = "shown on the citizen form" if obj.is_active else "hidden from the citizen form"
+            messages.success(request, f'"{obj.name}" is now {state}.')
+        return redirect("citizens:classifications")
+
+    return render(request, "citizens/classifications.html", {
+        "vulnerable_groups": VulnerableGroup.objects.order_by("sort_order", "name"),
+        "health_conditions": HealthCondition.objects.order_by("sort_order", "name"),
+    })
+
+
+@staff_required
+@require_POST
+def classification_add(request):
+    """Add one option from the citizen form without leaving the page."""
+    kind = (request.POST.get("kind") or "").strip()
+    model = _catalog_model(kind)
+    if model is None:
+        return JsonResponse({"ok": False, "error": "Unknown list."}, status=400)
+    try:
+        obj, status = add_catalog_item(model, request.POST.get("name"))
+    except CatalogNameError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    if status == "created":
+        message = f'"{obj.name}" added.'
+    elif status == "reactivated":
+        message = f'"{obj.name}" is available again.'
+    else:
+        message = f'"{obj.name}" is already in the list.'
+    return JsonResponse({
+        "ok": True,
+        "code": obj.code,
+        "name": obj.name,
+        "created": status == "created",
+        "message": message,
+    })

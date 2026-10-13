@@ -1,18 +1,63 @@
 from django import forms
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
-from .models import Citizen, CitizenFamilyMember, CitizenFingerprint, get_barangay_choices
+from .models import (
+    Citizen,
+    CitizenFamilyMember,
+    CitizenFingerprint,
+    HealthCondition,
+    VulnerableGroup,
+    catalog_choices,
+    get_barangay_choices,
+)
+
+
+class CatalogMultipleChoiceField(forms.MultipleChoiceField):
+    """Checkbox list loaded from VulnerableGroup / HealthCondition.
+
+    Choices are refreshed when the form is built. Validation also accepts an
+    option created on the page after the form was first rendered.
+    """
+
+    def __init__(self, catalog_model, fallback, **kwargs):
+        self.catalog_model = catalog_model
+        self.fallback = fallback
+        self.extra_codes = set()
+        kwargs.setdefault("choices", ())
+        super().__init__(**kwargs)
+
+    def validate(self, value):
+        if self.required and not value:
+            raise forms.ValidationError(self.error_messages["required"], code="required")
+        if not value:
+            return
+        active = set(
+            self.catalog_model.objects.filter(code__in=list(value), is_active=True)
+            .values_list("code", flat=True)
+        )
+        if not self.catalog_model.objects.exists():
+            active = {code for code, _label in self.fallback if code in value}
+        allowed = active | (set(value) & self.extra_codes)
+        invalid = [item for item in value if item not in allowed]
+        if invalid:
+            raise forms.ValidationError(
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": invalid[0]},
+            )
 
 
 class CitizenForm(forms.ModelForm):
-    vulnerable_groups = forms.MultipleChoiceField(
-        choices=Citizen.VULNERABLE_GROUP_CHOICES,
+    vulnerable_groups = CatalogMultipleChoiceField(
+        catalog_model=VulnerableGroup,
+        fallback=Citizen.VULNERABLE_GROUP_CHOICES,
         required=False,
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
         label="Vulnerable Group",
     )
-    health_conditions = forms.MultipleChoiceField(
-        choices=Citizen.HEALTH_CONDITION_CHOICES,
+    health_conditions = CatalogMultipleChoiceField(
+        catalog_model=HealthCondition,
+        fallback=Citizen.HEALTH_CONDITION_CHOICES,
         required=False,
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
         label="Health Condition",
@@ -106,10 +151,22 @@ class CitizenForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         current = ""
+        extra_groups = []
+        extra_health = []
         if self.instance and self.instance.pk:
             current = self.instance.barangay or ""
-            self.fields["vulnerable_groups"].initial = self.instance.vulnerable_groups or []
-            self.fields["health_conditions"].initial = self.instance.health_conditions or []
+            extra_groups = list(self.instance.vulnerable_groups or [])
+            extra_health = list(self.instance.health_conditions or [])
+            self.fields["vulnerable_groups"].initial = extra_groups
+            self.fields["health_conditions"].initial = extra_health
+        self.fields["vulnerable_groups"].extra_codes = set(extra_groups)
+        self.fields["health_conditions"].extra_codes = set(extra_health)
+        self.fields["vulnerable_groups"].choices = catalog_choices(
+            VulnerableGroup, Citizen.VULNERABLE_GROUP_CHOICES, extra_groups
+        )
+        self.fields["health_conditions"].choices = catalog_choices(
+            HealthCondition, Citizen.HEALTH_CONDITION_CHOICES, extra_health
+        )
         self.fields["barangay"].choices = get_barangay_choices(
             include_blank=True, include_name=current or None
         )

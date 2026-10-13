@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Groups &amp; Health{% endblock %}
+{% block content %}
+<div class="page-hdr">
+  <div>
+    <h2><i class="bi bi-list-check text-primary"></i> Vulnerable Groups &amp; Health Conditions</h2>
+    <small class="text-muted">These lists appear as checkboxes when adding or editing a citizen.</small>
+  </div>
+  <a href="{% url 'citizens:create' %}" class="btn btn-primary">
+    <i class="bi bi-person-plus"></i> Add Citizen
+  </a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="panel">
+      <div class="panel-hdr"><span><i class="bi bi-people"></i> Vulnerable Group</span></div>
+      <div class="p-3 border-bottom">
+        <form method="post" class="d-flex gap-2">
+          {% csrf_token %}
+          <input type="hidden" name="kind" value="vulnerable">
+          <input type="hidden" name="action" value="add">
+          <input type="text" name="name" class="form-control" maxlength="120" placeholder="New vulnerable group" required>
+          <button class="btn btn-primary" type="submit">Add</button>
+        </form>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>Name</th><th class="text-end">On citizen form</th></tr>
+          </thead>
+          <tbody>
+            {% for item in vulnerable_groups %}
+            <tr>
+              <td>{{ item.name }}</td>
+              <td class="text-end">
+                <form method="post" class="d-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="kind" value="vulnerable">
+                  <input type="hidden" name="action" value="toggle">
+                  <input type="hidden" name="code" value="{{ item.code }}">
+                  {% if item.is_active %}
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Hide</button>
+                  {% else %}
+                  <span class="badge bg-secondary me-2">Hidden</span>
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Show</button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-4">No vulnerable groups yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel">
+      <div class="panel-hdr"><span><i class="bi bi-heart-pulse"></i> Health Condition</span></div>
+      <div class="p-3 border-bottom">
+        <form method="post" class="d-flex gap-2">
+          {% csrf_token %}
+          <input type="hidden" name="kind" value="health">
+          <input type="hidden" name="action" value="add">
+          <input type="text" name="name" class="form-control" maxlength="120" placeholder="New health condition" required>
+          <button class="btn btn-primary" type="submit">Add</button>
+        </form>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>Name</th><th class="text-end">On citizen form</th></tr>
+          </thead>
+          <tbody>
+            {% for item in health_conditions %}
+            <tr>
+              <td>{{ item.name }}</td>
+              <td class="text-end">
+                <form method="post" class="d-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="kind" value="health">
+                  <input type="hidden" name="action" value="toggle">
+                  <input type="hidden" name="code" value="{{ item.code }}">
+                  {% if item.is_active %}
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Hide</button>
+                  {% else %}
+                  <span class="badge bg-secondary me-2">Hidden</span>
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Show</button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-4">No health conditions yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -212,11 +212,11 @@ class Citizen(models.Model):
         return f"{self.first_name}{mid} {self.last_name}{suf}".strip()
 
     def vulnerable_labels(self):
-        lookup = dict(self.VULNERABLE_GROUP_CHOICES)
+        lookup = catalog_lookup(VulnerableGroup, self.VULNERABLE_GROUP_CHOICES)
         return [lookup.get(v, v) for v in (self.vulnerable_groups or [])]
 
     def health_labels(self):
-        lookup = dict(self.HEALTH_CONDITION_CHOICES)
+        lookup = catalog_lookup(HealthCondition, self.HEALTH_CONDITION_CHOICES)
         return [lookup.get(v, v) for v in (self.health_conditions or [])]
 
     def ensure_id_number(self):
@@ -272,6 +272,138 @@ class Barangay(models.Model):
         if self.name:
             self.name = self.name.strip()
         super().save(*args, **kwargs)
+
+
+class VulnerableGroup(models.Model):
+    """Option shown on the citizen form. Staff can add more without a code change."""
+
+    code = models.SlugField(max_length=40, unique=True)
+    name = models.CharField(max_length=120, unique=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Vulnerable Group"
+        verbose_name_plural = "Vulnerable Groups"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = " ".join(self.name.split())
+        super().save(*args, **kwargs)
+
+
+class HealthCondition(models.Model):
+    """Option shown on the citizen form. Staff can add more without a code change."""
+
+    code = models.SlugField(max_length=40, unique=True)
+    name = models.CharField(max_length=120, unique=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Health Condition"
+        verbose_name_plural = "Health Conditions"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = " ".join(self.name.split())
+        super().save(*args, **kwargs)
+
+
+class CatalogNameError(Exception):
+    """Raised when a vulnerable group or health condition name cannot be saved."""
+
+
+def _unique_catalog_code(model, name):
+    import re
+
+    from django.utils.text import slugify
+
+    base = slugify(name).replace("-", "_")
+    base = re.sub(r"[^a-z0-9_]+", "_", base).strip("_")[:36] or "item"
+    code = base
+    n = 2
+    while model.objects.filter(code=code).exists():
+        suffix = f"_{n}"
+        code = f"{base[:40 - len(suffix)]}{suffix}"
+        n += 1
+    return code
+
+
+def add_catalog_item(model, name):
+    """Create or reactivate a catalog option.
+
+    Returns (object, status) where status is ``created``, ``exists``, or
+    ``reactivated``.
+    """
+    name = " ".join((name or "").split())
+    if not name:
+        raise CatalogNameError("Enter a name.")
+    if len(name) > 120:
+        raise CatalogNameError("Name must be 120 characters or fewer.")
+    existing = model.objects.filter(name__iexact=name).first()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.save(update_fields=["is_active", "updated_at"])
+            return existing, "reactivated"
+        return existing, "exists"
+    sort = (
+        model.objects.order_by("-sort_order").values_list("sort_order", flat=True).first()
+        or 0
+    )
+    obj = model.objects.create(
+        code=_unique_catalog_code(model, name),
+        name=name,
+        sort_order=sort + 1,
+        is_active=True,
+    )
+    return obj, "created"
+
+
+def catalog_choices(model, fallback, extra_codes=None):
+    """(code, name) pairs for checkboxes. Inactive rows stay only if already selected."""
+    extra_codes = [c for c in (extra_codes or []) if c]
+    if model.objects.exists():
+        rows = list(
+            model.objects.filter(is_active=True)
+            .order_by("sort_order", "name")
+            .values_list("code", "name")
+        )
+    else:
+        rows = list(fallback)
+    have = {code for code, _label in rows}
+    if extra_codes and model.objects.exists():
+        names = dict(
+            model.objects.filter(code__in=extra_codes).values_list("code", "name")
+        )
+        for code in extra_codes:
+            if code not in have:
+                rows.append((code, names.get(code, code)))
+                have.add(code)
+    return rows
+
+
+def catalog_lookup(model, fallback):
+    """code → display name, including hidden options still stored on citizens."""
+    data = dict(model.objects.values_list("code", "name"))
+    if not data:
+        return dict(fallback)
+    for code, name in fallback:
+        data.setdefault(code, name)
+    return data
 
 
 def get_barangay_choices(include_blank=True, include_name=None):

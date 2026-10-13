@@ -156,11 +156,11 @@
     <div class="kpi-lbl">Total Assistance Program</div>
   </div>
   {% endif %}
-  <a href="{% url 'citizens:list' %}?sex=M" class="kpi-card kpi-cyan">
+  <a href="{% url 'beneficiaries:list' %}?claim=claimed&amp;sex=M{% if claimed_date_from %}&amp;date_from={{ claimed_date_from }}{% endif %}{% if claimed_date_to %}&amp;date_to={{ claimed_date_to }}{% endif %}" class="kpi-card kpi-cyan" title="Male beneficiaries who have claimed">
     <div class="kpi-val">{{ male_count }}</div>
     <div class="kpi-lbl">Male</div>
   </a>
-  <a href="{% url 'citizens:list' %}?sex=F" class="kpi-card kpi-purple">
+  <a href="{% url 'beneficiaries:list' %}?claim=claimed&amp;sex=F{% if claimed_date_from %}&amp;date_from={{ claimed_date_from }}{% endif %}{% if claimed_date_to %}&amp;date_to={{ claimed_date_to }}{% endif %}" class="kpi-card kpi-purple" title="Female beneficiaries who have claimed">
     <div class="kpi-val">{{ female_count }}</div>
     <div class="kpi-lbl">Female</div>
   </a>

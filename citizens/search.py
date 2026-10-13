@@ -6,7 +6,7 @@ from django.core.cache import cache
 from django.db.models import Case, CharField, IntegerField, Q, Value, When
 from django.db.models.functions import Cast
 
-from .models import Citizen
+from .models import Citizen, HealthCondition, VulnerableGroup, catalog_choices
 
 _SEARCH_CACHE_TTL = 60
 
@@ -98,12 +98,16 @@ def _token_match(token, include_dates=False):
     parts.append(Q(vulnerable_groups__icontains=token))
     parts.append(Q(health_conditions__icontains=token))
     t = token.casefold()
-    for value, label in Citizen.VULNERABLE_GROUP_CHOICES:
+    for value, label in catalog_choices(
+        VulnerableGroup, Citizen.VULNERABLE_GROUP_CHOICES
+    ):
         value_cf = value.casefold()
         label_cf = label.casefold()
         if t == value_cf or t == label_cf or value_cf.startswith(t) or label_cf.startswith(t):
             parts.append(Q(vulnerable_groups__icontains=f'"{value}"'))
-    for value, label in Citizen.HEALTH_CONDITION_CHOICES:
+    for value, label in catalog_choices(
+        HealthCondition, Citizen.HEALTH_CONDITION_CHOICES
+    ):
         value_cf = value.casefold()
         label_cf = label.casefold()
         if t == value_cf or t == label_cf or value_cf.startswith(t) or label_cf.startswith(t):

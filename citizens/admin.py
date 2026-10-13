@@ -6,6 +6,8 @@ from .models import (
     Citizen,
     CitizenFamilyMember,
     CitizenFingerprint,
+    HealthCondition,
+    VulnerableGroup,
     get_barangay_choices,
 )
 
@@ -51,6 +53,26 @@ class CitizenAdminForm(forms.ModelForm):
                 "Citizen Registry → Barangays → Add barangay."
             ),
         )
+
+
+class _CatalogAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "is_active", "sort_order", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("name", "code")
+    list_editable = ("is_active", "sort_order")
+    ordering = ("sort_order", "name")
+    readonly_fields = ("code", "created_at", "updated_at")
+    fields = ("name", "code", "is_active", "sort_order", "created_at", "updated_at")
+
+
+@admin.register(VulnerableGroup)
+class VulnerableGroupAdmin(_CatalogAdmin):
+    pass
+
+
+@admin.register(HealthCondition)
+class HealthConditionAdmin(_CatalogAdmin):
+    pass
 
 
 @admin.register(Barangay)

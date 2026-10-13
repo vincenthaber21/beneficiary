@@ -57,9 +57,13 @@
   .form-control[readonly]{background:#f8fafc;color:#64748b}
   .req{color:#ef4444}
   .citizen-id-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;font-weight:700;color:#E01224;background:#FEECEF;border:1px solid #F5A8AE;border-radius:6px;padding:.45rem .7rem}
-  .check-list{max-height:160px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem .65rem;background:#fafafa}
+  .check-list{max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem .65rem;background:#fafafa}
   .check-list .form-check{margin-bottom:.35rem}
   .check-list .form-check-label{font-size:.8rem;color:#334155}
+  .catalog-add{display:flex;gap:.4rem;margin-top:.55rem}
+  .catalog-add .form-control{font-size:.8rem}
+  .catalog-msg{font-size:.72rem;margin:.35rem 0 0;min-height:1em}
+  .catalog-manage{font-size:.72rem;font-weight:600;text-decoration:none}
   .panel-hint{font-size:.75rem;color:#64748b;margin:0 0 .75rem}
   .family-table,.fp-table{font-size:.8rem;margin:0;border-color:#e2e8f0}
   .family-table th,.fp-table th{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc;font-weight:600;border-color:#e2e8f0;white-space:nowrap}
@@ -577,23 +581,39 @@
 
       <div class="side-lists">
         <div class="panel-box">
-          <div class="panel-box-title">Vulnerable Group</div>
+          <div class="panel-box-title">
+            <span>Vulnerable Group</span>
+            <a href="{% url 'citizens:classifications' %}" class="catalog-manage">Manage</a>
+          </div>
           <div class="panel-box-body">
-            <div class="check-list">
+            <div class="check-list" data-catalog-list="vulnerable">
               {% for checkbox in form.vulnerable_groups %}
               <div class="form-check">{{ checkbox.tag }} <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label></div>
               {% endfor %}
             </div>
+            <div class="catalog-add">
+              <input type="text" class="form-control" maxlength="120" placeholder="New vulnerable group" data-catalog-input="vulnerable" autocomplete="off">
+              <button type="button" class="btn btn-sm btn-outline-primary" data-catalog-add="vulnerable">Add</button>
+            </div>
+            <div class="catalog-msg text-muted" data-catalog-msg="vulnerable"></div>
           </div>
         </div>
         <div class="panel-box">
-          <div class="panel-box-title">Health Condition</div>
+          <div class="panel-box-title">
+            <span>Health Condition</span>
+            <a href="{% url 'citizens:classifications' %}" class="catalog-manage">Manage</a>
+          </div>
           <div class="panel-box-body">
-            <div class="check-list">
+            <div class="check-list" data-catalog-list="health">
               {% for checkbox in form.health_conditions %}
               <div class="form-check">{{ checkbox.tag }} <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label></div>
               {% endfor %}
             </div>
+            <div class="catalog-add">
+              <input type="text" class="form-control" maxlength="120" placeholder="New health condition" data-catalog-input="health" autocomplete="off">
+              <button type="button" class="btn btn-sm btn-outline-primary" data-catalog-add="health">Add</button>
+            </div>
+            <div class="catalog-msg text-muted" data-catalog-msg="health"></div>
           </div>
         </div>
       </div>
@@ -1542,6 +1562,107 @@
     existing.src = hidden.value;
     if (pvSig) { pvSig.src = hidden.value; pvSig.style.display = ''; }
   }
+})();
+</script>
+<script>
+(function () {
+  var endpoint = "{% url 'citizens:classification_add' %}";
+  var tokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
+  var token = tokenEl ? tokenEl.value : '';
+
+  function addOption(kind, code, labelText) {
+    var list = document.querySelector('[data-catalog-list="' + kind + '"]');
+    if (!list) return;
+    var field = kind === 'health' ? 'health_conditions' : 'vulnerable_groups';
+    var existing = list.querySelector('input[value="' + CSS.escape(code) + '"]');
+    if (existing) {
+      existing.checked = true;
+      existing.closest('.form-check').scrollIntoView({block: 'nearest'});
+      return;
+    }
+    var row = document.createElement('div');
+    row.className = 'form-check';
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = field;
+    input.value = code;
+    input.checked = true;
+    input.className = 'form-check-input';
+    input.id = 'id_' + field + '_' + code;
+    var label = document.createElement('label');
+    label.className = 'form-check-label';
+    label.htmlFor = input.id;
+    label.textContent = labelText;
+    row.appendChild(input);
+    row.appendChild(document.createTextNode(' '));
+    row.appendChild(label);
+    list.appendChild(row);
+    row.scrollIntoView({block: 'nearest'});
+  }
+
+  function bind(kind) {
+    var input = document.querySelector('[data-catalog-input="' + kind + '"]');
+    var button = document.querySelector('[data-catalog-add="' + kind + '"]');
+    var msg = document.querySelector('[data-catalog-msg="' + kind + '"]');
+    if (!input || !button) return;
+
+    function setMsg(text, isError) {
+      if (!msg) return;
+      msg.textContent = text || '';
+      msg.classList.toggle('text-danger', !!isError);
+      msg.classList.toggle('text-success', !!text && !isError);
+      msg.classList.toggle('text-muted', !text);
+    }
+
+    function submit() {
+      var name = input.value.trim();
+      if (!name) {
+        setMsg('Enter a name.', true);
+        input.focus();
+        return;
+      }
+      button.disabled = true;
+      var body = new URLSearchParams();
+      body.set('kind', kind);
+      body.set('name', name);
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': token,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: body
+      }).then(function (res) {
+        return res.json().then(function (data) {
+          return {ok: res.ok, data: data};
+        });
+      }).then(function (result) {
+        if (!result.ok || !result.data.ok) {
+          setMsg((result.data && result.data.error) || 'Could not add that item.', true);
+          return;
+        }
+        addOption(kind, result.data.code, result.data.name);
+        input.value = '';
+        setMsg(result.data.message, false);
+      }).catch(function () {
+        setMsg('Could not add that item.', true);
+      }).finally(function () {
+        button.disabled = false;
+        input.focus();
+      });
+    }
+
+    button.addEventListener('click', submit);
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit();
+      }
+    });
+  }
+
+  bind('vulnerable');
+  bind('health');
 })();
 </script>
 {% endblock %}

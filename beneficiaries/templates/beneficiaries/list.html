@@ -35,7 +35,7 @@
       <span class="d-none d-sm-inline">Auto from Citizens</span>
       <span class="d-sm-none">Auto</span>
     </a>
-    <a href="{% url 'beneficiaries:export_excel' %}?q={{ q|urlencode }}&amp;class={{ cls|urlencode }}&amp;family={{ fam|urlencode }}&amp;claim={{ claim|urlencode }}"
+    <a href="{% url 'beneficiaries:export_excel' %}?q={{ q|urlencode }}&amp;class={{ cls|urlencode }}&amp;family={{ fam|urlencode }}&amp;claim={{ claim|urlencode }}&amp;sex={{ sex|urlencode }}&amp;date_from={{ date_from|urlencode }}&amp;date_to={{ date_to|urlencode }}"
        class="btn btn-outline-success"
        title="Download the current filtered list as Excel">
       <i class="bi bi-file-earmark-excel"></i>
@@ -75,6 +75,17 @@
           <option value="not_claimed" {% if claim == "not_claimed" %}selected{% endif %}>Does not claim</option>
         </select>
       </div>
+      <div class="col-md-2">
+        <select name="sex" class="form-select">
+          <option value="">All sexes</option>
+          <option value="M" {% if sex == "M" %}selected{% endif %}>Male</option>
+          <option value="F" {% if sex == "F" %}selected{% endif %}>Female</option>
+        </select>
+      </div>
+      {% if date_from or date_to %}
+      <input type="hidden" name="date_from" value="{{ date_from }}">
+      <input type="hidden" name="date_to" value="{{ date_to }}">
+      {% endif %}
       <div class="col-auto">
         <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> Search</button>
         <a href="{% url 'beneficiaries:list' %}" class="btn btn-outline-secondary ms-1">Reset</a>
@@ -98,6 +109,13 @@
       {% if not_claimed_count %}
         &nbsp;·&nbsp;<i class="bi bi-hourglass-split text-warning"></i>
         {{ not_claimed_count }} does not claim
+      {% endif %}
+      {% if date_from or date_to %}
+        &nbsp;·&nbsp;<i class="bi bi-calendar3"></i>
+        Registered
+        {% if date_from and date_to %}{{ date_from }} to {{ date_to }}
+        {% elif date_from %}from {{ date_from }}
+        {% else %}until {{ date_to }}{% endif %}
       {% endif %}
     </span>
   </div>
