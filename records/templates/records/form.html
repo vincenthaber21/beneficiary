@@ -325,13 +325,36 @@
 {% block extra_js %}
 <script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
 <script id="programBudgets" type="application/json">{{ program_budgets|default:"{}"|safe }}</script>
+<script id="beneficiaryPrograms" type="application/json">{{ beneficiary_programs|default:"{}"|safe }}</script>
 <script>
 (function () {
   /* ── Program budget data ── */
   let PROGRAM_BUDGETS = {};
   try { PROGRAM_BUDGETS = JSON.parse(document.getElementById('programBudgets')?.textContent || '{}'); }
   catch (e) { PROGRAM_BUDGETS = {}; }
+  let BENEFICIARY_PROGRAMS = {};
+  try { BENEFICIARY_PROGRAMS = JSON.parse(document.getElementById('beneficiaryPrograms')?.textContent || '{}'); }
+  catch (e) { BENEFICIARY_PROGRAMS = {}; }
   const peso = n => '₱ ' + Number(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  /* Lock program to the beneficiary’s single enrolled program. */
+  function lockProgramToBeneficiary() {
+    const benSel = document.getElementById('id_beneficiary');
+    const progSel = document.getElementById('id_program');
+    if (!benSel || !progSel) return;
+    const enrolled = BENEFICIARY_PROGRAMS[benSel.value];
+    if (!enrolled) return;
+    const enrolledStr = String(enrolled);
+    Array.from(progSel.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = opt.value !== enrolledStr;
+      opt.disabled = opt.value !== enrolledStr;
+    });
+    if (progSel.value !== enrolledStr) {
+      progSel.value = enrolledStr;
+      progSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
 
   /* ── Program budget hint ── */
   const hint = document.getElementById('budgetHint');
@@ -468,10 +491,16 @@
   ['id_beneficiary','id_program','id_status'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', updateSidebar);
   });
+  document.getElementById('id_beneficiary')?.addEventListener('change', () => {
+    lockProgramToBeneficiary();
+    updateSidebar();
+    updateBudgetHint();
+  });
   document.getElementById('id_program')?.addEventListener('change', updateBudgetHint);
   document.getElementById('id_amount')?.addEventListener('input', updateSidebar);
   document.getElementById('id_amount')?.addEventListener('input', checkAmountVsBudget);
   document.getElementById('id_date_granted')?.addEventListener('input', updateSidebar);
+  lockProgramToBeneficiary();
 
   /* ── Client-side validation ── */
   const form = document.getElementById('recForm');

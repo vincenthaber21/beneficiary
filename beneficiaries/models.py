@@ -111,6 +111,16 @@ class Beneficiary(models.Model):
         help_text="Date this person last received assistance from any program "
                   "before being added to this system. Used to enforce the 3-month cooldown.",
     )
+    # One program only — beneficiary may avail grants from this program, not all.
+    program = models.ForeignKey(
+        "programs.AssistanceProgram",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="enrolled_beneficiaries",
+        verbose_name="Assistance Program",
+        help_text="The single assistance program this beneficiary may avail.",
+    )
     notes = models.TextField(blank=True)
 
     class Meta:

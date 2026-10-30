@@ -502,7 +502,9 @@ def beneficiary_create(request):
 
 @staff_required
 def beneficiary_update(request, pk):
-    ben = get_object_or_404(Beneficiary.objects.select_related("citizen"), pk=pk)
+    ben = get_object_or_404(
+        Beneficiary.objects.select_related("citizen", "program"), pk=pk
+    )
     if request.method != "POST" and ben.citizen_id:
         # Keep personal cache in sync with citizen registry before editing.
         ben.sync_from_citizen()
@@ -891,7 +893,7 @@ def beneficiary_delete(request, pk):
 @staff_required
 def beneficiary_detail(request, pk):
     ben = get_object_or_404(
-        Beneficiary.objects.select_related("citizen"), pk=pk
+        Beneficiary.objects.select_related("citizen", "program"), pk=pk
     )
     grants = ben.grants.select_related("program", "granted_by").order_by("-date_granted")
 

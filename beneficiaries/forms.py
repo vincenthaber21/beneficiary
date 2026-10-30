@@ -316,6 +316,7 @@ class BeneficiaryForm(forms.ModelForm):
         model = Beneficiary
         fields = [
             "citizen",
+            "program",
             "last_name", "first_name", "middle_name", "sex",
             "beneficiary_class", "monthly_income",
             "contact_number", "address", "barangay",
@@ -324,6 +325,7 @@ class BeneficiaryForm(forms.ModelForm):
         ]
         widgets = {
             "citizen": forms.Select(attrs={"class": "form-select", "id": "id_citizen"}),
+            "program": forms.Select(attrs={"class": "form-select", "id": "id_program"}),
             "last_name": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "e.g. Dela Cruz",
@@ -438,6 +440,22 @@ class BeneficiaryForm(forms.ModelForm):
         self.fields["income_range_display"].help_text = (
             "Same Monthly Income as on the citizen’s registry record. "
             "Edit in Citizens — not changeable here."
+        )
+        # Single program only — may avail that program, not every program.
+        from programs.models import AssistanceProgram
+        prog_qs = AssistanceProgram.objects.filter(is_active=True).order_by("name")
+        current_prog = getattr(self.instance, "program_id", None)
+        if current_prog:
+            prog_qs = AssistanceProgram.objects.filter(
+                Q(pk=current_prog) | Q(is_active=True)
+            ).order_by("name").distinct()
+        self.fields["program"].queryset = prog_qs
+        self.fields["program"].required = True
+        self.fields["program"].empty_label = "— Select one program —"
+        self.fields["program"].label = "Assistance Program"
+        self.fields["program"].help_text = (
+            "Choose the single program this person may avail. "
+            "They cannot receive grants from other programs."
         )
         # Prefill visible range from linked / selected citizen.
         citizen_for_display = None

@@ -27,6 +27,7 @@
             </td>
           </tr>
           {% endif %}
+          <tr><td class="text-muted fw-semibold" style="width:40%">Program</td><td>{% if beneficiary.program %}<span class="badge" style="background:#FEECEF;color:#B80E1C">{{ beneficiary.program.name }}</span>{% else %}<span class="text-muted">Not assigned</span>{% endif %}</td></tr>
           <tr><td class="text-muted fw-semibold" style="width:40%">Class</td><td><span class="badge" style="background:#e0e7ff;color:#3730a3">{{ beneficiary.beneficiary_class }}</span></td></tr>
           <tr><td class="text-muted fw-semibold">Monthly Income</td><td>₱{{ beneficiary.monthly_income|floatformat:2 }}</td></tr>
           <tr><td class="text-muted fw-semibold">Contact</td><td>{{ beneficiary.contact_number|default:"—" }}</td></tr>

@@ -505,6 +505,25 @@
         </div>
       </div>
 
+      <div class="panel-box" id="programPanel"
+           data-has-program-errors="{% if form.program.errors %}1{% endif %}">
+        <div class="panel-box-title"><span class="panel-title-text">Assistance Program</span></div>
+        <div class="panel-box-body">
+          <p class="panel-hint mb-2">
+            <i class="bi bi-journal-bookmark-fill me-1"></i>
+            Select <strong>one</strong> program from
+            <a href="{% url 'programs:list' %}">Assistance Programs</a>.
+            This beneficiary may avail grants from that program only — not all programs.
+          </p>
+          <div class="mb-1">
+            <label class="form-label">Program to Avail <span class="req">*</span></label>
+            {{ form.program }}
+            {% if form.program.help_text %}<div class="form-text">{{ form.program.help_text }}</div>{% endif %}
+            {% if form.program.errors %}<div class="text-danger small mt-1">{{ form.program.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+
       <div class="panel-box" id="classificationPanel" style="display:none"
            data-has-class-errors="{% if form.beneficiary_class.errors or form.monthly_income.errors or form.income_range_display.errors %}1{% endif %}">
         <div class="panel-box-title"><span class="panel-title-text">Classification &amp; Eligibility</span></div>
@@ -733,6 +752,10 @@
               <span class="summary-val ph" id="previewName">Not set</span>
             </div>
             <div class="summary-row">
+              <span class="summary-lbl">Program</span>
+              <span class="summary-val ph" id="previewProgram">—</span>
+            </div>
+            <div class="summary-row">
               <span class="summary-lbl">Class</span>
               <span class="summary-val ph" id="previewClass">—</span>
             </div>
@@ -785,6 +808,13 @@
             <li class="rule-item">
               <span class="rule-num">2</span>
               <div class="rule-body">
+                <p class="rule-title">One program only</p>
+                <p class="rule-desc" id="ruleProgramDesc">Choose a single assistance program above. Grants from other programs are not allowed.</p>
+              </div>
+            </li>
+            <li class="rule-item">
+              <span class="rule-num">3</span>
+              <div class="rule-body">
                 <p class="rule-title">Valid beneficiary class</p>
                 <p class="rule-desc">Must belong to one of these classes (from the citizen record):</p>
                 <div class="class-chips">
@@ -797,14 +827,14 @@
               </div>
             </li>
             <li class="rule-item">
-              <span class="rule-num">3</span>
+              <span class="rule-num">4</span>
               <div class="rule-body">
                 <p class="rule-title">No recent personal grant</p>
                 <p class="rule-desc">Must not have received a grant within the last 3 months (including any prior grant date recorded here).</p>
               </div>
             </li>
             <li class="rule-item">
-              <span class="rule-num">4</span>
+              <span class="rule-num">5</span>
               <div class="rule-body">
                 <p class="rule-title">Household / family rule</p>
                 <p class="rule-desc">No family member may have received a grant within the last 3 months (one grant per household).</p>
@@ -1559,6 +1589,17 @@
     const fullName = [fn, mn ? mn[0]+'.' : '', ln].filter(Boolean).join(' ');
 
     sv('previewName', fullName || null, 'Not set');
+    const progSel = document.getElementById('id_program');
+    const progLabel = (progSel && progSel.selectedIndex > 0)
+      ? progSel.options[progSel.selectedIndex].text
+      : null;
+    sv('previewProgram', progLabel, '—');
+    const ruleProg = document.getElementById('ruleProgramDesc');
+    if (ruleProg) {
+      ruleProg.textContent = progLabel
+        ? 'Enrolled for “' + progLabel + '” only — grants from other programs are not allowed.'
+        : 'Choose a single assistance program above. Grants from other programs are not allowed.';
+    }
     sv('previewClass', classField?.value || null, '—');
     const incomeLabel = (incomeRangeField && incomeRangeField.value.trim())
       ? incomeRangeField.value.trim()
@@ -1589,13 +1630,14 @@
   incomeField?.addEventListener('input',  () => { updateEligibility(); updateSidebar(); });
   incomeRangeField?.addEventListener('input', () => { updateEligibility(); updateSidebar(); });
   document.getElementById('id_is_active')?.addEventListener('change', updateSidebar);
+  document.getElementById('id_program')?.addEventListener('change', updateSidebar);
 
   const form = document.getElementById('benForm');
   const submitBtn = document.getElementById('submitBtn');
   if (form) {
     form.addEventListener('submit', function (e) {
       let valid = true;
-      ['id_last_name','id_first_name','id_beneficiary_class','id_income_range_display','id_monthly_income'].forEach(id => {
+      ['id_last_name','id_first_name','id_beneficiary_class','id_income_range_display','id_monthly_income','id_program'].forEach(id => {
         const el = document.getElementById(id);
         if (el && !el.value.trim()) { el.classList.add('is-invalid'); valid = false; }
         else if (el) el.classList.remove('is-invalid');

@@ -33,7 +33,7 @@ def _annotate_budget(programs):
 
 
 def _annotate_eligible_counts(programs):
-    """Attach ``eligible_count`` to each program using per-program cooldown + threshold."""
+    """Attach ``eligible_count`` to each program using per-program enrollment + cooldown."""
     for program in programs:
         cutoff = timezone.now().date() - timedelta(days=program.grant_cooldown_months * 30)
         recent_ids = set(
@@ -41,10 +41,12 @@ def _annotate_eligible_counts(programs):
                 status="released", date_granted__gte=cutoff
             ).values_list("beneficiary_id", flat=True)
         )
+        # Only beneficiaries enrolled for THIS program (not all programs).
         program.eligible_count = (
             Beneficiary.objects
             .filter(
                 is_active=True,
+                program=program,
                 beneficiary_class__in=VALID_CLASSES,
             )
             .exclude(pk__in=recent_ids)

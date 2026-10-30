@@ -4,6 +4,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q, Sum
 from utils import staff_required
+from beneficiaries.models import Beneficiary
 from programs.models import AssistanceProgram
 from .models import GrantRecord
 from .forms import GrantRecordForm
@@ -24,6 +25,16 @@ def _program_budgets():
             "released": float(released),
             "available": float(budget - released),
         }
+    return json.dumps(data)
+
+
+def _beneficiary_programs():
+    """Map of beneficiary id -> enrolled program id (one program only)."""
+    data = {
+        str(pk): prog_id
+        for pk, prog_id in Beneficiary.objects.exclude(program_id=None)
+        .values_list("pk", "program_id")
+    }
     return json.dumps(data)
 
 
@@ -69,7 +80,9 @@ def record_create(request):
         messages.success(request, "Grant record created successfully.")
         return redirect("records:list")
     return render(request, "records/form.html", {
-        "form": form, "action": "Add", "program_budgets": _program_budgets(),
+        "form": form, "action": "Add",
+        "program_budgets": _program_budgets(),
+        "beneficiary_programs": _beneficiary_programs(),
     })
 
 
@@ -84,6 +97,7 @@ def record_update(request, pk):
     return render(request, "records/form.html", {
         "form": form, "action": "Edit", "record": record,
         "program_budgets": _program_budgets(),
+        "beneficiary_programs": _beneficiary_programs(),
     })
 
 
