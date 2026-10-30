@@ -31,12 +31,18 @@
     .sb-nav::-webkit-scrollbar-thumb{background:rgba(231,140,45,.45);border-radius:99px}
     .sb-nav::-webkit-scrollbar-track{background:transparent}
     .sb-section{font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--seal-gold);padding:.9rem 1.1rem .3rem;letter-spacing:.08em}
-    .sb-nav a{display:flex;align-items:center;gap:.65rem;padding:.55rem 1.1rem;color:#D9D0B8;text-decoration:none;font-size:.875rem;border-left:3px solid transparent;transition:.15s}
-    .sb-nav a i{color:var(--seal-gold);font-size:1rem;width:1.15rem;text-align:center;opacity:.9}
-    .sb-nav a:hover{background:rgba(252,21,39,.16);color:#fff}
-    .sb-nav a:hover i{color:#fff;opacity:1}
-    .sb-nav a.active{background:linear-gradient(90deg,rgba(252,21,39,.38) 0%,rgba(252,21,39,.12) 100%);color:#fff;border-left-color:var(--seal-gold);font-weight:600}
-    .sb-nav a.active i{color:var(--seal-lime);opacity:1}
+    .sb-nav a,.sb-drop-btn{display:flex;align-items:center;gap:.65rem;padding:.55rem 1.1rem;color:#D9D0B8;text-decoration:none;font-size:.875rem;border-left:3px solid transparent;transition:.15s;width:100%;background:transparent;border-top:0;border-right:0;border-bottom:0;cursor:pointer;font-family:inherit;text-align:left}
+    .sb-nav a i,.sb-drop-btn i{color:var(--seal-gold);font-size:1rem;width:1.15rem;text-align:center;opacity:.9}
+    .sb-nav a:hover,.sb-drop-btn:hover{background:rgba(252,21,39,.16);color:#fff}
+    .sb-nav a:hover i,.sb-drop-btn:hover i{color:#fff;opacity:1}
+    .sb-nav a.active,.sb-drop-btn.active{background:linear-gradient(90deg,rgba(252,21,39,.38) 0%,rgba(252,21,39,.12) 100%);color:#fff;border-left-color:var(--seal-gold);font-weight:600}
+    .sb-nav a.active i,.sb-drop-btn.active i{color:var(--seal-lime);opacity:1}
+    .sb-drop-btn .sb-caret{margin-left:auto;width:auto;font-size:.75rem;transition:transform .2s;opacity:.75}
+    .sb-drop.open .sb-drop-btn .sb-caret{transform:rotate(180deg)}
+    .sb-sub{display:none;padding:.15rem 0 .35rem}
+    .sb-drop.open .sb-sub{display:block}
+    .sb-sub a{padding:.45rem 1.1rem .45rem 2.55rem;font-size:.82rem}
+    .sb-sub a i{font-size:.9rem}
     .sb-user{padding:.85rem 1rem;border-top:2px solid rgba(231,140,45,.45);background:rgba(0,0,0,.18);flex-shrink:0}
     .sb-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--seal-red),var(--seal-rope));border:2px solid var(--seal-gold);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.85rem;flex-shrink:0}
     .sb-username{color:#fff;font-weight:600;font-size:.85rem}
@@ -153,9 +159,6 @@
     <a href="{% url 'user_mgmt:list' %}" class="{% if request.resolver_match.namespace == 'user_mgmt' %}active{% endif %}">
       <i class="bi bi-people"></i> Manage Users
     </a>
-    <a href="{% url 'core:audit_trails' %}" class="{% if request.resolver_match.url_name == 'audit_trails' %}active{% endif %}">
-      <i class="bi bi-shield-check"></i> Audit Trails
-    </a>
     {% endif %}
 
     <div class="sb-section">Operations</div>
@@ -176,14 +179,27 @@
     <a href="{% url 'reports:index' %}" class="{% if request.resolver_match.namespace == 'reports' %}active{% endif %}">
       <i class="bi bi-bar-chart-line"></i> Reports
     </a>
-    <a href="{% url 'settings_mgmt:settings' %}" class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
-      <i class="bi bi-gear"></i> Settings
-    </a>
-    {% if user.is_superuser or user.profile.role == 'admin' %}
-    <a href="{% url 'settings_mgmt:backup_restore' %}" class="{% if request.resolver_match.url_name == 'backup_restore' %}active{% endif %}">
-      <i class="bi bi-shield-lock"></i> Backup &amp; Restore
-    </a>
-    {% endif %}
+    {% with settings_open=request.resolver_match.url_name %}
+    <div class="sb-drop{% if settings_open == 'settings' or settings_open == 'backup_restore' or settings_open == 'audit_trails' %} open{% endif %}" id="sbSettingsDrop">
+      <button type="button" class="sb-drop-btn{% if settings_open == 'settings' or settings_open == 'backup_restore' or settings_open == 'audit_trails' %} active{% endif %}" id="sbSettingsToggle" aria-expanded="{% if settings_open == 'settings' or settings_open == 'backup_restore' or settings_open == 'audit_trails' %}true{% else %}false{% endif %}" aria-controls="sbSettingsSub">
+        <i class="bi bi-gear"></i> Settings
+        <i class="bi bi-chevron-down sb-caret"></i>
+      </button>
+      <div class="sb-sub" id="sbSettingsSub">
+        <a href="{% url 'settings_mgmt:settings' %}" class="{% if settings_open == 'settings' %}active{% endif %}">
+          <i class="bi bi-sliders"></i> System Settings
+        </a>
+        {% if user.is_superuser or user.profile.role == 'admin' %}
+        <a href="{% url 'core:audit_trails' %}" class="{% if settings_open == 'audit_trails' %}active{% endif %}">
+          <i class="bi bi-shield-check"></i> Audit Trails
+        </a>
+        <a href="{% url 'settings_mgmt:backup_restore' %}" class="{% if settings_open == 'backup_restore' %}active{% endif %}">
+          <i class="bi bi-shield-lock"></i> Backup &amp; Restore
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
     {% endif %}
   </nav>
   <div class="sb-user">
@@ -253,6 +269,16 @@
   window.addEventListener('resize', function () {
     if (window.innerWidth >= 992) setOpen(false);
   });
+
+  var settingsDrop = document.getElementById('sbSettingsDrop');
+  var settingsToggle = document.getElementById('sbSettingsToggle');
+  if (settingsDrop && settingsToggle) {
+    settingsToggle.addEventListener('click', function () {
+      var open = settingsDrop.classList.toggle('open');
+      settingsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      settingsToggle.classList.toggle('active', open || settingsDrop.querySelector('.sb-sub a.active'));
+    });
+  }
 })();
 </script>
 {% endif %}

@@ -129,8 +129,9 @@ def search_beneficiaries(query, exclude_pk=None, exclude_citizen_pk=None, limit=
     Family-member typeahead — same registry search as Citizens → Family Composition.
 
     Returns citizen matches ranked with enrolled beneficiaries first.
-    ``id`` is the beneficiary PK when ``can_link`` is True (form stores Beneficiary FK);
-    otherwise ``id`` is null and the row is shown as not-yet-enrolled.
+    Any citizen can be linked: ``id`` is the beneficiary PK when enrolled
+    (stored on FamilyMember.member); ``citizen_id`` is always set and stored
+    on FamilyMember.citizen so non-enrolled relatives can be kept on file.
     """
     from datetime import date
     from django.db.models import Case, IntegerField, Value, When
@@ -143,7 +144,7 @@ def search_beneficiaries(query, exclude_pk=None, exclude_citizen_pk=None, limit=
 
     epoch = cache.get("ben:family_search_epoch", 0)
     cache_key = (
-        f"ben:family_search:{epoch}:{exclude_pk or 0}:"
+        f"ben:family_search_v2:{epoch}:{exclude_pk or 0}:"
         f"{exclude_citizen_pk or 0}:{q.casefold()}:{limit}"
     )
     cached = cache.get(cache_key)
@@ -233,6 +234,7 @@ def search_beneficiaries(query, exclude_pk=None, exclude_citizen_pk=None, limit=
                 "id": ben.pk,
                 "citizen_id": c.pk,
                 "can_link": True,
+                "enrolled": True,
                 "name": name,
                 "label": (
                     f"{ident or '—'} — {name}"
@@ -248,7 +250,8 @@ def search_beneficiaries(query, exclude_pk=None, exclude_citizen_pk=None, limit=
             results.append({
                 "id": None,
                 "citizen_id": c.pk,
-                "can_link": False,
+                "can_link": True,
+                "enrolled": False,
                 "name": name,
                 "label": f"{c.registry_no or '—'} — {name}",
                 "registry_no": c.registry_no or "",
@@ -528,10 +531,13 @@ class BeneficiaryForm(forms.ModelForm):
 class FamilyMemberForm(forms.ModelForm):
     class Meta:
         model = FamilyMember
-        fields = ["member", "relationship", "age"]
+        fields = ["member", "citizen", "relationship", "age"]
         widgets = {
             "member": forms.Select(attrs={
                 "class": "form-select form-select-sm family-member-select",
+            }),
+            "citizen": forms.Select(attrs={
+                "class": "form-select form-select-sm family-citizen-select",
             }),
             "relationship": forms.Select(attrs={"class": "form-select form-select-sm"}),
             "age": forms.NumberInput(attrs={
@@ -544,22 +550,40 @@ class FamilyMemberForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Avoid loading every beneficiary into each row <select>.
-        selected_pk = None
+        # Avoid loading every beneficiary / citizen into each row <select>.
+        selected_member_pk = None
+        selected_citizen_pk = None
         if self.is_bound:
-            raw = self.data.get(self.add_prefix("member"), "")
-            if str(raw).isdigit():
-                selected_pk = int(raw)
-        elif self.instance and self.instance.member_id:
-            selected_pk = self.instance.member_id
+            raw_m = self.data.get(self.add_prefix("member"), "")
+            if str(raw_m).isdigit():
+                selected_member_pk = int(raw_m)
+            raw_c = self.data.get(self.add_prefix("citizen"), "")
+            if str(raw_c).isdigit():
+                selected_citizen_pk = int(raw_c)
+        else:
+            if self.instance and self.instance.member_id:
+                selected_member_pk = self.instance.member_id
+            if self.instance and self.instance.citizen_id:
+                selected_citizen_pk = self.instance.citizen_id
 
-        if selected_pk:
-            self.fields["member"].queryset = Beneficiary.objects.filter(pk=selected_pk)
+        if selected_member_pk:
+            self.fields["member"].queryset = Beneficiary.objects.filter(
+                pk=selected_member_pk
+            )
         else:
             self.fields["member"].queryset = Beneficiary.objects.none()
 
+        if selected_citizen_pk:
+            self.fields["citizen"].queryset = Citizen.objects.filter(
+                pk=selected_citizen_pk
+            )
+        else:
+            self.fields["citizen"].queryset = Citizen.objects.none()
+
         self.fields["member"].empty_label = "— Search beneficiary —"
         self.fields["member"].required = False
+        self.fields["citizen"].empty_label = "— Search citizen —"
+        self.fields["citizen"].required = False
         self.fields["relationship"].required = False
         self.fields["member"].label_from_instance = (
             lambda obj: (
@@ -567,17 +591,40 @@ class FamilyMemberForm(forms.ModelForm):
                 + (f" ({obj.beneficiary_class})" if obj.beneficiary_class else "")
             )
         )
+        self.fields["citizen"].label_from_instance = (
+            lambda obj: (
+                f"{obj.registry_no or '—'} — {obj.last_name}, {obj.first_name}"
+                + (f" {obj.middle_name}" if obj.middle_name else "")
+            )
+        )
 
     def clean(self):
         cleaned = super().clean()
         member = cleaned.get("member")
+        citizen = cleaned.get("citizen")
         relationship = cleaned.get("relationship")
         if cleaned.get("DELETE"):
             return cleaned
-        if member and not relationship:
+
+        # Prefer the enrolled beneficiary link; keep citizen in sync when possible.
+        if member and not citizen and getattr(member, "citizen_id", None):
+            cleaned["citizen"] = member.citizen
+            citizen = cleaned["citizen"]
+        if citizen and not member:
+            linked = (
+                Beneficiary.objects.filter(citizen=citizen)
+                .select_related("citizen")
+                .first()
+            )
+            if linked:
+                cleaned["member"] = linked
+                member = linked
+
+        has_person = bool(member or citizen)
+        if has_person and not relationship:
             self.add_error("relationship", "Select a relationship.")
-        if relationship and not member:
-            self.add_error("member", "Select a beneficiary.")
+        if relationship and not has_person:
+            self.add_error("citizen", "Select a family member from the registry.")
         return cleaned
 
 

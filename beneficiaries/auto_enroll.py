@@ -171,6 +171,7 @@ def _link_families_from_citizens() -> int:
         FamilyMember.objects.create(
             beneficiary=head,
             member=member,
+            citizen_id=fm.member_id,
             relationship=fm.relationship or "Other",
             age=None,
         )

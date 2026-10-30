@@ -24,9 +24,17 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.repl.co",
     "https://*.riker.replit.dev",
     "https://*.replit.app",
-    "http://localhost",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
     "http://127.0.0.1",
+    "http://localhost",
 ]
+
+# Keep CSRF secret in the session so a stale csrftoken cookie cannot
+# desync from the form token (common after host/port or HTTPS↔HTTP switches).
+CSRF_USE_SESSIONS = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
 INSTALLED_APPS = [
     "django.contrib.admin",

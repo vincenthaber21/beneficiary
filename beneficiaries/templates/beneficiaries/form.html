@@ -116,7 +116,7 @@
   .family-member-search{
     width:100%;font-size:.8rem!important;padding:.3rem .5rem;
   }
-  .family-member-select{display:none!important}
+  .family-member-select,.family-citizen-select{display:none!important}
   .family-search-results{
     position:fixed;z-index:1300;display:none;max-height:280px;overflow:auto;
     background:#fff;border:1px solid #e2e8f0;border-radius:10px;
@@ -263,6 +263,18 @@
   .idprev-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(15,23,42,.04)}
   .idprev-hdr{display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:700;color:#0f172a;margin-bottom:.85rem}
   .idprev-hdr i{color:#f97316}
+  .rules-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.04);margin-bottom:1rem}
+  .rules-card-hdr{padding:.75rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:.45rem;font-size:.85rem;font-weight:700;color:#0f172a}
+  .rules-card-hdr i{color:#E01224}
+  .rules-intro{font-size:.75rem;color:#64748b;padding:.75rem 1rem 0;margin:0;line-height:1.45}
+  .rules-list{list-style:none;margin:0;padding:.65rem .85rem 1rem;display:flex;flex-direction:column;gap:.5rem}
+  .rule-item{display:flex;align-items:flex-start;gap:.5rem;padding:.6rem .65rem;border-radius:10px;background:#f8fafc;border:1px solid #f1f5f9}
+  .rule-item .rule-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#FEECEF;color:#E01224;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:.1rem}
+  .rule-item .rule-body{min-width:0}
+  .rule-item .rule-title{font-size:.78rem;font-weight:700;color:#0f172a;margin:0 0 .15rem}
+  .rule-item .rule-desc{font-size:.72rem;color:#64748b;margin:0;line-height:1.4}
+  .class-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem}
+  .class-chip{font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:6px;background:#e0e7ff;color:#3730a3}
   .idprev-frame{position:relative;width:100%;overflow:hidden;border-radius:10px;background:#f8fafc}
   .idprev-frame .ecard{width:720px;max-width:none;transform-origin:top left;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14)}
   .idprev-frame .ecard .gov p,
@@ -452,6 +464,49 @@
       </div>
 
       <div class="panel-box">
+        <div class="panel-box-title"><span class="panel-title-text">Prior Grant History</span></div>
+        <div class="panel-box-body">
+          <div class="row g-2 align-items-start">
+            <div class="col-md-5">
+              <label class="form-label">Date of Last Grant Received</label>
+              <div class="date-input-wrap{% if last_system_grant %} grant-locked{% endif %}">
+                <input type="text" id="prior_grant_display" class="form-control"
+                       placeholder="Select date…" autocomplete="off" readonly
+                       {% if last_system_grant %}disabled{% endif %}>
+                <button type="button" class="date-icon-btn" id="btnPickGrant" tabindex="-1" aria-label="Open calendar"
+                        {% if last_system_grant %}disabled{% endif %}>
+                  <i class="bi bi-{% if last_system_grant %}lock-fill{% else %}calendar3{% endif %}"></i>
+                </button>
+              </div>
+              <div style="display:none">{{ form.prior_grant_date }}</div>
+              {% if last_system_grant %}
+              <div class="form-text mt-1 text-primary">
+                <i class="bi bi-info-circle-fill me-1"></i>
+                Locked — a released program grant is already on record.
+              </div>
+              {% else %}
+              <div class="form-text mt-1">
+                Enter the last grant date to unlock Classification &amp; Eligibility.
+              </div>
+              {% endif %}
+              {% if form.prior_grant_date.errors %}<div class="text-danger small mt-1">{{ form.prior_grant_date.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-7">
+              <div id="grantWarnBanner" class="cooldown-banner warn mt-1">
+                <strong><i class="bi bi-exclamation-triangle-fill me-1"></i>3-month cooldown active.</strong>
+                Not qualified until <span id="cooldownEnd"></span>.
+              </div>
+              <div id="grantOkBanner" class="cooldown-banner ok mt-1">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                Grant on <strong><span id="grantClearDate"></span></strong> is outside the 3-month window.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-box" id="classificationPanel" style="display:none"
+           data-has-class-errors="{% if form.beneficiary_class.errors or form.monthly_income.errors or form.income_range_display.errors %}1{% endif %}">
         <div class="panel-box-title"><span class="panel-title-text">Classification &amp; Eligibility</span></div>
         <div class="panel-box-body">
           <p class="panel-hint mb-2">
@@ -486,46 +541,6 @@
         </div>
       </div>
 
-      <div class="panel-box">
-        <div class="panel-box-title"><span class="panel-title-text">Prior Grant History</span></div>
-        <div class="panel-box-body">
-          <div class="row g-2 align-items-start">
-            <div class="col-md-5">
-              <label class="form-label">Date of Last Grant Received</label>
-              <div class="date-input-wrap{% if last_system_grant %} grant-locked{% endif %}">
-                <input type="text" id="prior_grant_display" class="form-control"
-                       placeholder="Select date…" autocomplete="off" readonly
-                       {% if last_system_grant %}disabled{% endif %}>
-                <button type="button" class="date-icon-btn" id="btnPickGrant" tabindex="-1" aria-label="Open calendar"
-                        {% if last_system_grant %}disabled{% endif %}>
-                  <i class="bi bi-{% if last_system_grant %}lock-fill{% else %}calendar3{% endif %}"></i>
-                </button>
-              </div>
-              <div style="display:none">{{ form.prior_grant_date }}</div>
-              {% if last_system_grant %}
-              <div class="form-text mt-1 text-primary">
-                <i class="bi bi-info-circle-fill me-1"></i>
-                Locked — a released program grant is already on record.
-              </div>
-              {% else %}
-              <div class="form-text mt-1">Leave blank if this person had no prior assistance.</div>
-              {% endif %}
-              {% if form.prior_grant_date.errors %}<div class="text-danger small mt-1">{{ form.prior_grant_date.errors.0 }}</div>{% endif %}
-            </div>
-            <div class="col-md-7">
-              <div id="grantWarnBanner" class="cooldown-banner warn mt-1">
-                <strong><i class="bi bi-exclamation-triangle-fill me-1"></i>3-month cooldown active.</strong>
-                Not qualified until <span id="cooldownEnd"></span>.
-              </div>
-              <div id="grantOkBanner" class="cooldown-banner ok mt-1">
-                <i class="bi bi-check-circle-fill me-1"></i>
-                Grant on <strong><span id="grantClearDate"></span></strong> is outside the 3-month window.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="panel-box panel-box-family">
         <div class="panel-box-title">
           <span class="panel-title-text">Family Members</span>
@@ -537,8 +552,8 @@
           <p class="panel-hint mb-2">
             Search the citizen registry by name or ID — same as
             <strong>Citizens → Family Composition</strong>.
-            Only people already enrolled as beneficiaries can be linked.
-            Selecting a citizen above also auto-fills enrolled household members.
+            Relatives can be linked even if they are not yet enrolled as beneficiaries.
+            Selecting a citizen above also auto-fills household members from their registry record.
           </p>
           <div id="citizenHouseholdBanner" class="family-banner" style="display:none">
             <div class="family-banner-hdr">
@@ -561,9 +576,13 @@
               <div class="family-chip">
                 <div class="fc-avatar">{{ fm.person.first_name.0 }}{{ fm.person.last_name.0 }}</div>
                 <div class="fc-info">
-                  <a class="fc-name" href="{% url 'beneficiaries:detail' fm.person.pk %}">{{ fm.person.full_name }}</a>
+                  {% if fm.detail_url %}
+                  <a class="fc-name" href="{{ fm.detail_url }}">{{ fm.person.full_name }}</a>
+                  {% else %}
+                  <div class="fc-name" style="cursor:default">{{ fm.person.full_name }}</div>
+                  {% endif %}
                   <div class="fc-meta">
-                    {{ fm.person.beneficiary_class }}{% if fm.age %} · Age {{ fm.age }}{% endif %}
+                    {% if fm.enrolled %}{{ fm.person.beneficiary_class|default:"Enrolled" }}{% else %}Not enrolled{% endif %}{% if fm.age %} · Age {{ fm.age }}{% endif %}
                   </div>
                 </div>
                 <span class="fc-rel">{{ fm.relationship }}</span>
@@ -578,7 +597,7 @@
             <table class="table table-sm table-bordered family-table align-middle" id="family-table">
               <thead>
                 <tr>
-                  <th style="min-width:240px">Beneficiary</th>
+                  <th style="min-width:240px">Family Member</th>
                   <th style="width:22%">Relationship</th>
                   <th style="width:12%">Age</th>
                   <th class="row-actions" aria-label="Actions"></th>
@@ -593,13 +612,17 @@
                       <input type="search" class="form-control form-control-sm family-member-search"
                              placeholder="Type name or Citizen ID…" autocomplete="off" spellcheck="false">
                       {{ member_form.member }}
-                      <div class="family-selected-label{% if member_form.instance.member_id %} show{% endif %}">
+                      {{ member_form.citizen }}
+                      <div class="family-selected-label{% if member_form.instance.member_id or member_form.instance.citizen_id %} show{% endif %}">
                         {% if member_form.instance.member_id %}
                           {{ member_form.instance.member.rfid_id|default:"—" }} — {{ member_form.instance.member.last_name }}, {{ member_form.instance.member.first_name }}{% if member_form.instance.member.beneficiary_class %} ({{ member_form.instance.member.beneficiary_class }}){% endif %}
+                        {% elif member_form.instance.citizen_id %}
+                          {{ member_form.instance.citizen.registry_no|default:"—" }} — {{ member_form.instance.citizen.last_name }}, {{ member_form.instance.citizen.first_name }}{% if member_form.instance.citizen.middle_name %} {{ member_form.instance.citizen.middle_name }}{% endif %}
                         {% endif %}
                       </div>
                     </div>
                     {% if member_form.member.errors %}<div class="text-danger small">{{ member_form.member.errors.0 }}</div>{% endif %}
+                    {% if member_form.citizen.errors %}<div class="text-danger small">{{ member_form.citizen.errors.0 }}</div>{% endif %}
                   </td>
                   <td>
                     {{ member_form.relationship }}
@@ -743,6 +766,52 @@
             </div>
           </div>
         </div>
+
+        <div class="rules-card">
+          <div class="rules-card-hdr">
+            <i class="bi bi-shield-check"></i> Instructions to Avail Assistance
+          </div>
+          <p class="rules-intro">
+            A person must meet all of the following to qualify for program grants after enrollment.
+          </p>
+          <ol class="rules-list">
+            <li class="rule-item">
+              <span class="rule-num">1</span>
+              <div class="rule-body">
+                <p class="rule-title">Enrolled &amp; active</p>
+                <p class="rule-desc">Select a citizen from the registry and keep the beneficiary status Active.</p>
+              </div>
+            </li>
+            <li class="rule-item">
+              <span class="rule-num">2</span>
+              <div class="rule-body">
+                <p class="rule-title">Valid beneficiary class</p>
+                <p class="rule-desc">Must belong to one of these classes (from the citizen record):</p>
+                <div class="class-chips">
+                  {% for c in valid_classes %}
+                    <span class="class-chip">{{ c }}</span>
+                  {% empty %}
+                    <span class="class-chip">No classes configured</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </li>
+            <li class="rule-item">
+              <span class="rule-num">3</span>
+              <div class="rule-body">
+                <p class="rule-title">No recent personal grant</p>
+                <p class="rule-desc">Must not have received a grant within the last 3 months (including any prior grant date recorded here).</p>
+              </div>
+            </li>
+            <li class="rule-item">
+              <span class="rule-num">4</span>
+              <div class="rule-body">
+                <p class="rule-title">Household / family rule</p>
+                <p class="rule-desc">No family member may have received a grant within the last 3 months (one grant per household).</p>
+              </div>
+            </li>
+          </ol>
+        </div>
       </div>
     </aside>
   </div>
@@ -776,6 +845,7 @@
   const COOLDOWN_DAYS    = 90;
   const SYSTEM_GRANT_YMD = "{{ last_system_grant|default:'' }}";
   const GRANT_LOCKED     = {% if last_system_grant %}true{% else %}false{% endif %};
+  const IS_EDIT          = {% if beneficiary %}true{% else %}false{% endif %};
   const FAMILY_BLOCKER   = "{{ family_blocker|default:''|escapejs }}";
   const CITIZEN_LOOKUP   = "{{ citizen_lookup_url|default:''|escapejs }}";
   const EXCLUDE_BEN_PK   = "{% if beneficiary %}{{ beneficiary.pk }}{% endif %}";
@@ -1318,6 +1388,7 @@
   const grantWarn      = document.getElementById('grantWarnBanner');
   const grantOk        = document.getElementById('grantOkBanner');
   const cooldownEndEl  = document.getElementById('cooldownEnd');
+  const classPanel     = document.getElementById('classificationPanel');
 
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
     new bootstrap.Tooltip(el, { trigger: 'hover focus' })
@@ -1364,6 +1435,7 @@
     onChange(dates) {
       if (grantDateField) grantDateField.value = dates.length ? dateToYMD(dates[0]) : '';
       updateGrantBanners();
+      updateClassificationVisibility();
       updateEligibility();
       updateSidebar();
     },
@@ -1374,6 +1446,19 @@
   if (grantDateField?.value) {
     const [y,m,d] = grantDateField.value.split('-').map(Number);
     fpGrant.setDate(new Date(y, m-1, d), false);
+  }
+
+  function hasPriorGrantInput() {
+    if (GRANT_LOCKED) return true;
+    if (grantDateField && grantDateField.value) return true;
+    if (IS_EDIT) return true;
+    if (classPanel && classPanel.dataset.hasClassErrors === '1') return true;
+    return false;
+  }
+
+  function updateClassificationVisibility() {
+    if (!classPanel) return;
+    classPanel.style.display = hasPriorGrantInput() ? '' : 'none';
   }
 
   function activeCooldownEndYmd() {
@@ -1405,11 +1490,20 @@
   }
 
   function updateEligibility() {
-    const cls    = classField?.value || '';
-    const ymd    = grantDateField?.value || '';
+    const cls = classField?.value || '';
+    const ymd = grantDateField?.value || '';
 
-    if (!cls && !ymd) { eligCard.style.display='none'; setEligPill('p'); return; }
-    eligCard.style.display = '';
+    if (!hasPriorGrantInput()) {
+      if (eligCard) eligCard.style.display = 'none';
+      setEligPill('p');
+      return;
+    }
+    if (!cls && !ymd) {
+      if (eligCard) eligCard.style.display = 'none';
+      setEligPill('p');
+      return;
+    }
+    if (eligCard) eligCard.style.display = '';
 
     if (!cls || !VALID_CLASSES.includes(cls)) {
       setElig('nq', 'bi-x-circle-fill', 'NOT QUALIFIED',
@@ -1516,6 +1610,7 @@
   }
 
   updateGrantBanners();
+  updateClassificationVisibility();
   updateEligibility();
   updateSidebar();
   window.__benUpdateEligibility = updateEligibility;
@@ -1593,6 +1688,25 @@
     return ((parts[0] || '?').charAt(0) + (parts[1] || '?').charAt(0)).toUpperCase();
   }
 
+  function clearSelect(sel) {
+    if (!sel) return;
+    while (sel.options.length > 1) sel.remove(1);
+    sel.selectedIndex = 0;
+    sel.value = '';
+  }
+
+  function setSelectOption(sel, id, label) {
+    if (!sel) return;
+    clearSelect(sel);
+    if (!id) return;
+    var opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = label || ('#' + id);
+    opt.selected = true;
+    sel.appendChild(opt);
+    sel.value = String(id);
+  }
+
   function resetPicker(row) {
     var search = row.querySelector('.family-member-search');
     if (search) {
@@ -1605,65 +1719,52 @@
       label.textContent = '';
       label.classList.remove('show');
     }
-    var sel = row.querySelector('select[name$="-member"]');
-    if (sel) {
-      while (sel.options.length > 1) sel.remove(1);
-      sel.selectedIndex = 0;
-      sel.value = '';
-    }
+    clearSelect(row.querySelector('select[name$="-member"]'));
+    clearSelect(row.querySelector('select[name$="-citizen"]'));
   }
 
-  function applyMemberUi(row, id, label, extra) {
+  function applyMemberUi(row, memberId, citizenId, label, extra) {
     extra = extra || {};
-    var sel = row.querySelector('select.family-member-select, select[name$="-member"]');
+    var memberSel = row.querySelector('select.family-member-select, select[name$="-member"]');
+    var citizenSel = row.querySelector('select.family-citizen-select, select[name$="-citizen"]');
     var labelEl = row.querySelector('.family-selected-label');
     var search = row.querySelector('.family-member-search');
     var age = row.querySelector('input[name$="-age"]');
-    if (sel) {
-      if (id) {
-        while (sel.options.length > 1) sel.remove(1);
-        var opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = label || ('Beneficiary #' + id);
-        opt.selected = true;
-        sel.appendChild(opt);
-        sel.value = String(id);
-      } else {
-        while (sel.options.length > 1) sel.remove(1);
-        sel.selectedIndex = 0;
-        sel.value = '';
-      }
-    }
+    setSelectOption(memberSel, memberId || '', label);
+    setSelectOption(citizenSel, citizenId || '', label);
+    var hasPerson = !!(memberId || citizenId);
     if (labelEl) {
       labelEl.textContent = label || '';
-      if (id && label) labelEl.classList.add('show');
+      if (hasPerson && label) labelEl.classList.add('show');
       else labelEl.classList.remove('show');
     }
     if (search) {
       search.value = '';
-      search.placeholder = id ? 'Search to change…' : 'Type name or Citizen ID…';
+      search.placeholder = hasPerson ? 'Search to change…' : 'Type name or Citizen ID…';
     }
     if (extra.age != null && extra.age !== '' && age && !age.value) {
       age.value = extra.age;
     }
   }
 
-  function selectedIds(exceptRow) {
-    var ids = {};
+  function selectedKeys(exceptRow) {
+    var keys = {};
     wrapper.querySelectorAll('.family-member-row').forEach(function (row) {
       if (row === exceptRow || row.style.display === 'none') return;
-      var sel = row.querySelector('select[name$="-member"]');
-      if (sel && sel.value) ids[String(sel.value)] = true;
+      var memberSel = row.querySelector('select[name$="-member"]');
+      var citizenSel = row.querySelector('select[name$="-citizen"]');
+      if (memberSel && memberSel.value) keys['b:' + memberSel.value] = true;
+      if (citizenSel && citizenSel.value) keys['c:' + citizenSel.value] = true;
     });
-    return ids;
+    return keys;
   }
 
   function setMember(row, item) {
-    if (!item || !item.can_link || !item.id) {
+    if (!item || !item.can_link || !(item.id || item.citizen_id)) {
       closeResults();
       return;
     }
-    applyMemberUi(row, item.id, item.label, { age: item.age });
+    applyMemberUi(row, item.id || '', item.citizen_id || '', item.label, { age: item.age });
     closeResults();
   }
 
@@ -1690,10 +1791,9 @@
       if (item.beneficiary_class) metaBits.push(item.beneficiary_class);
       if (item.sex) metaBits.push(item.sex);
       metaBits.push(item.barangay || 'No barangay');
-      if (!item.can_link) metaBits.push('Enroll as beneficiary first to link');
       btn.querySelector('.fsr-meta').textContent = metaBits.join(' · ');
       var badge = btn.querySelector('.fsr-badge');
-      if (item.can_link) {
+      if (item.enrolled || item.id) {
         badge.textContent = 'Enrolled';
         badge.classList.add('ok');
       } else {
@@ -1725,10 +1825,12 @@
     }
     var key = q.toLowerCase() + ':' + (EXCLUDE_PK || '');
     function show(items) {
-      var taken = selectedIds(row);
+      var taken = selectedKeys(row);
       renderResults(items.filter(function (item) {
-        if (!item.can_link || !item.id) return true;
-        return !taken[String(item.id)];
+        if (!item.can_link) return true;
+        if (item.id && taken['b:' + item.id]) return false;
+        if (item.citizen_id && taken['c:' + item.citizen_id]) return false;
+        return true;
       }), q, row, input);
     }
     if (clientCache[key]) {
@@ -1737,6 +1839,10 @@
     }
     var url = SEARCH_URL + '?q=' + encodeURIComponent(q);
     if (EXCLUDE_PK) url += '&exclude=' + encodeURIComponent(EXCLUDE_PK);
+    var citizenFld = document.getElementById('id_citizen');
+    if (citizenFld && citizenFld.value) {
+      url += '&exclude_citizen=' + encodeURIComponent(citizenFld.value);
+    }
     fetch(url, { headers: { Accept: 'application/json' } })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -1754,12 +1860,15 @@
     input.dataset.boundSearch = '1';
     var timer = null;
 
-    var sel = row.querySelector('select[name$="-member"]');
-    if (sel && sel.value && sel.selectedOptions && sel.selectedOptions[0]) {
+    var memberSel = row.querySelector('select[name$="-member"]');
+    var citizenSel = row.querySelector('select[name$="-citizen"]');
+    var selectedSel = (memberSel && memberSel.value) ? memberSel
+      : ((citizenSel && citizenSel.value) ? citizenSel : null);
+    if (selectedSel && selectedSel.selectedOptions && selectedSel.selectedOptions[0]) {
       input.placeholder = 'Search to change…';
       var label = row.querySelector('.family-selected-label');
       if (label && !label.textContent.trim()) {
-        label.textContent = sel.selectedOptions[0].text;
+        label.textContent = selectedSel.selectedOptions[0].text;
         label.classList.add('show');
       }
     }
@@ -1879,9 +1988,9 @@
       nameEl.textContent = m.name || '—';
       var meta = document.createElement('div');
       meta.className = 'fc-meta';
-      if (m.can_link) {
+      if (m.enrolled || m.beneficiary_id) {
         linked += 1;
-        meta.textContent = 'Linked as beneficiary' + (m.age != null ? ' · Age ' + m.age : '');
+        meta.textContent = 'Enrolled beneficiary' + (m.age != null ? ' · Age ' + m.age : '');
       } else if (m.citizen_id) {
         pending += 1;
         meta.textContent = 'In registry, not enrolled yet' +
@@ -1903,14 +2012,17 @@
     if (householdNote) {
       if (linked && pending) {
         householdNote.textContent =
-          linked + ' enrolled relative(s) were added below. ' +
-          pending + ' household member(s) are not beneficiaries yet — enroll them first to link.';
+          linked + ' enrolled relative(s) and ' +
+          pending + ' not-yet-enrolled relative(s) were added below.';
       } else if (linked) {
         householdNote.textContent =
           linked + ' enrolled relative(s) were added to Family Members below.';
+      } else if (pending) {
+        householdNote.textContent =
+          pending + ' household member(s) from the citizen record were added below (not yet enrolled).';
       } else {
         householdNote.textContent =
-          'Household members found on the citizen record, but none are enrolled as beneficiaries yet. Enroll them first to link here.';
+          'Household members found on the citizen record, but none are linked in the registry.';
       }
     }
   }
@@ -1920,7 +2032,9 @@
     if (IS_EDIT) return;
 
     clearAutofillRows();
-    var linkable = (members || []).filter(function (m) { return m.can_link && m.beneficiary_id; });
+    var linkable = (members || []).filter(function (m) {
+      return m.can_link && (m.beneficiary_id || m.citizen_id);
+    });
     if (!linkable.length) {
       var rows = visibleRows();
       if (rows.length) {
@@ -1929,7 +2043,7 @@
           else el.value = '';
         });
         rows[0].dataset.autofill = '';
-        applyMemberUi(rows[0], '', '');
+        applyMemberUi(rows[0], '', '', '');
       }
       renumberFamily();
       return;
@@ -1941,7 +2055,13 @@
       var row = filled[i];
       if (!row) return;
       row.dataset.autofill = '1';
-      applyMemberUi(row, m.beneficiary_id, m.beneficiary_label || m.name, { age: m.age });
+      applyMemberUi(
+        row,
+        m.beneficiary_id || '',
+        m.citizen_id || '',
+        m.beneficiary_label || m.name,
+        { age: m.age }
+      );
       var rel = row.querySelector('select[name$="-relationship"]');
       var age = row.querySelector('input[name$="-age"]');
       if (rel) rel.value = m.relationship || 'Other';
@@ -1978,7 +2098,7 @@
           el.value = '';
         });
         row.dataset.autofill = '';
-        applyMemberUi(row, '', '');
+        applyMemberUi(row, '', '', '');
         return;
       }
       row.remove();

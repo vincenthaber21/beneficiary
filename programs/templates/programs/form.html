@@ -44,8 +44,22 @@
   .prog-breadcrumb { font-size: .78rem; color: #64748b; margin-bottom: .35rem; }
   .prog-breadcrumb a { color: #E01224; text-decoration: none; }
   .prog-breadcrumb a:hover { text-decoration: underline; }
-  .form-grid { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
+  .form-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
   @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
+  .sidebar-stack { display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 1.5rem; }
+  .rules-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; }
+  .rules-card-hdr { padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 700; color: #0f172a; }
+  .rules-card-hdr i { color: #E01224; }
+  .rules-intro { font-size: .75rem; color: #64748b; padding: .85rem 1.25rem 0; margin: 0; line-height: 1.45; }
+  .rules-list { list-style: none; margin: 0; padding: .65rem 1rem 1rem; display: flex; flex-direction: column; gap: .55rem; }
+  .rule-item { display: flex; align-items: flex-start; gap: .55rem; padding: .65rem .7rem; border-radius: 10px; background: #f8fafc; border: 1px solid #f1f5f9; }
+  .rule-item .rule-num { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: #FEECEF; color: #E01224; font-size: .68rem; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: .1rem; }
+  .rule-item .rule-body { min-width: 0; }
+  .rule-item .rule-title { font-size: .78rem; font-weight: 700; color: #0f172a; margin: 0 0 .15rem; }
+  .rule-item .rule-desc { font-size: .72rem; color: #64748b; margin: 0; line-height: 1.4; }
+  .rule-item.off { opacity: .55; background: #fef2f2; border-color: #fecaca; }
+  .class-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; }
+  .class-chip { font-size: .65rem; font-weight: 600; padding: .15rem .45rem; border-radius: 6px; background: #e0e7ff; color: #3730a3; }
   .form-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; }
   .form-card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .75rem; }
   .form-card-header .hdr-icon { width: 40px; height: 40px; border-radius: 10px; background: #FEECEF; color: #E01224; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
@@ -74,7 +88,7 @@
   .btn-save:hover { background: #B80E1C; border-color: #B80E1C; color: #fff; }
   .btn-cancel { font-size: .875rem; padding: .55rem 1.25rem; border-radius: 8px; color: #64748b; border-color: #e2e8f0; background: #fff; }
   .btn-cancel:hover { background: #f1f5f9; }
-  .summary-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); position: sticky; top: 1.5rem; }
+  .summary-card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
   .summary-card-hdr { padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 700; color: #0f172a; }
   .summary-card-hdr i { color: #E01224; }
   .summary-body { padding: 1rem 1.25rem; }
@@ -177,18 +191,6 @@
 
         <div class="row g-3 mb-3">
           <div class="col-md-4">
-            <label class="form-label">
-              Grant Cooldown
-              <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip"
-                 title="Months before a beneficiary can receive another grant from this program."></i>
-            </label>
-            <div class="input-group">
-              {{ form.grant_cooldown_months }}
-              <span class="input-group-text">mo.</span>
-            </div>
-          </div>
-
-          <div class="col-md-4">
             <label class="form-label">Start Date <span class="text-danger">*</span></label>
             <div class="date-input-wrap">
               {{ form.start_date }}
@@ -211,6 +213,22 @@
             </div>
             {% if form.end_date.errors %}
               <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.end_date.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">
+              Grant Cooldown
+              <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip"
+                 title="Auto-calculated from Start and End dates when both are set. Enter manually only if the program is ongoing (no end date)."></i>
+            </label>
+            <div class="input-group">
+              {{ form.grant_cooldown_months }}
+              <span class="input-group-text">mo.</span>
+            </div>
+            <div class="form-text" id="cooldownHint">Set Start and End dates to auto-fill this value.</div>
+            {% if form.grant_cooldown_months.errors %}
+              <div class="invalid-feedback d-block mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.grant_cooldown_months.errors.0 }}</div>
             {% endif %}
           </div>
         </div>
@@ -243,44 +261,99 @@
     </div>
   </div><!-- /form-card -->
 
-  <!-- ── Summary sidebar ── -->
+  <!-- ── Summary + Rules sidebar ── -->
   <aside>
-    <div class="summary-card">
-      <div class="summary-card-hdr">
-        <i class="bi bi-clipboard2-data-fill"></i> Live Preview
+    <div class="sidebar-stack">
+      <div class="summary-card">
+        <div class="summary-card-hdr">
+          <i class="bi bi-clipboard2-data-fill"></i> Live Preview
+        </div>
+        <div class="summary-body">
+          <div class="summary-row">
+            <span class="summary-lbl">Program Name</span>
+            <span class="summary-val placeholder-txt" id="previewName">Not set</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Budget</span>
+            <span class="summary-val placeholder-txt" id="previewBudget">—</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Income Threshold</span>
+            <span class="summary-val placeholder-txt" id="previewThreshold">—</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Grant Cooldown</span>
+            <span class="summary-val placeholder-txt" id="previewCooldown">—</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Duration</span>
+            <span class="summary-val placeholder-txt" id="previewDuration">—</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-lbl">Status</span>
+            <span id="previewStatus">
+              <span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>
+            </span>
+          </div>
+        </div>
+        <p class="required-note px-3 pb-3 mb-0">
+          <i class="bi bi-asterisk text-danger me-1" style="font-size:.6rem"></i>
+          Fields marked with <span class="text-danger">*</span> are required.
+        </p>
       </div>
-      <div class="summary-body">
-        <div class="summary-row">
-          <span class="summary-lbl">Program Name</span>
-          <span class="summary-val placeholder-txt" id="previewName">Not set</span>
+
+      <div class="rules-card" id="rulesCard">
+        <div class="rules-card-hdr">
+          <i class="bi bi-shield-check"></i> Rules to Avail This Program
         </div>
-        <div class="summary-row">
-          <span class="summary-lbl">Budget</span>
-          <span class="summary-val placeholder-txt" id="previewBudget">—</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-lbl">Income Threshold</span>
-          <span class="summary-val placeholder-txt" id="previewThreshold">—</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-lbl">Grant Cooldown</span>
-          <span class="summary-val placeholder-txt" id="previewCooldown">—</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-lbl">Duration</span>
-          <span class="summary-val placeholder-txt" id="previewDuration">—</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-lbl">Status</span>
-          <span id="previewStatus">
-            <span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>
-          </span>
-        </div>
+        <p class="rules-intro">
+          A beneficiary must meet all of the following to qualify for grants under this program.
+        </p>
+        <ol class="rules-list">
+          <li class="rule-item" id="ruleActive">
+            <span class="rule-num">1</span>
+            <div class="rule-body">
+              <p class="rule-title">Program is active</p>
+              <p class="rule-desc" id="ruleActiveDesc">This program must be marked Active for grants to be assigned.</p>
+            </div>
+          </li>
+          <li class="rule-item" id="ruleSchedule">
+            <span class="rule-num">2</span>
+            <div class="rule-body">
+              <p class="rule-title">Within program schedule</p>
+              <p class="rule-desc" id="ruleScheduleDesc">Set a start date (and optional end date) below.</p>
+            </div>
+          </li>
+          <li class="rule-item">
+            <span class="rule-num">3</span>
+            <div class="rule-body">
+              <p class="rule-title">Valid beneficiary class</p>
+              <p class="rule-desc">Must belong to one of these classes:</p>
+              <div class="class-chips">
+                {% for c in valid_classes %}
+                  <span class="class-chip">{{ c }}</span>
+                {% empty %}
+                  <span class="class-chip">No classes configured</span>
+                {% endfor %}
+              </div>
+            </div>
+          </li>
+          <li class="rule-item">
+            <span class="rule-num">4</span>
+            <div class="rule-body">
+              <p class="rule-title">No recent personal grant</p>
+              <p class="rule-desc" id="ruleCooldownDesc">Must not have received a grant within the cooldown period.</p>
+            </div>
+          </li>
+          <li class="rule-item">
+            <span class="rule-num">5</span>
+            <div class="rule-body">
+              <p class="rule-title">Household / family rule</p>
+              <p class="rule-desc" id="ruleHouseholdDesc">No family member may have received a grant within the same cooldown window (one grant per household).</p>
+            </div>
+          </li>
+        </ol>
       </div>
-      <p class="required-note px-3 pb-3 mb-0">
-        <i class="bi bi-asterisk text-danger me-1" style="font-size:.6rem"></i>
-        Fields marked with <span class="text-danger">*</span> are required.
-      </p>
     </div>
   </aside>
 </div><!-- /form-grid -->
@@ -327,32 +400,6 @@
     fpInstance.calendarContainer.appendChild(bar);
   }
 
-  /* ── Flatpickr — Start Date ── */
-  const fpStart = flatpickr('#id_start_date', {
-    dateFormat: 'Y-m-d',
-    allowInput: true,
-    disableMobile: true,
-    onReady(_, __, fp) { addQuickBar(fp, { showToday: true, showClear: true }); },
-    onChange(dates) {
-      // keep end-date min in sync
-      if (dates.length) fpEnd.set('minDate', dates[0]);
-      updateDuration();
-    }
-  });
-
-  /* ── Flatpickr — End Date ── */
-  const fpEnd = flatpickr('#id_end_date', {
-    dateFormat: 'Y-m-d',
-    allowInput: true,
-    disableMobile: true,
-    onReady(_, __, fp) { addQuickBar(fp, { showToday: true, showClear: true }); },
-    onChange() { updateDuration(); }
-  });
-
-  /* ── Calendar icon triggers ── */
-  document.getElementById('btnPickStart')?.addEventListener('click', () => fpStart.open());
-  document.getElementById('btnPickEnd')?.addEventListener('click', () => fpEnd.open());
-
   /* ── Helpers ── */
   const $   = id => document.getElementById(id);
   const fmt = n  => n ? '₱\u202f' + parseFloat(n).toLocaleString('en-PH', { minimumFractionDigits: 2 }) : null;
@@ -363,6 +410,95 @@
     if (value) { el.textContent = value; el.classList.remove('placeholder-txt'); }
     else       { el.textContent = placeholder; el.classList.add('placeholder-txt'); }
   }
+
+  function parseYmd(str) {
+    if (!str || !/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+    const [y, m, d] = str.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return (dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d) ? dt : null;
+  }
+
+  /** Months between start/end (≈ days/30), min 1 — matches server-side months_between. */
+  function monthsBetween(startStr, endStr) {
+    const s = parseYmd(startStr);
+    const e = parseYmd(endStr);
+    if (!s || !e || e < s) return null;
+    const days = Math.round((e - s) / 86400000);
+    return Math.max(1, Math.round(days / 30));
+  }
+
+  function syncCooldownPreview(n) {
+    setVal('previewCooldown', n ? n + ' month' + (n !== 1 ? 's' : '') : null, '—');
+  }
+
+  function updateCooldownFromDates() {
+    const cooldownEl = $('id_grant_cooldown_months');
+    const hintEl = $('cooldownHint');
+    if (!cooldownEl) return;
+
+    const s = $('id_start_date')?.value?.trim() || '';
+    const e = $('id_end_date')?.value?.trim() || '';
+    const months = monthsBetween(s, e);
+
+    // Drop any stale max attr that browsers may enforce.
+    cooldownEl.removeAttribute('max');
+    cooldownEl.setAttribute('min', '1');
+
+    if (months != null) {
+      cooldownEl.value = String(months);
+      cooldownEl.readOnly = true;
+      cooldownEl.classList.add('bg-light');
+      cooldownEl.classList.remove('is-invalid');
+      if (hintEl) {
+        hintEl.textContent = 'Auto-filled from Start → End (' + months + ' month' + (months !== 1 ? 's' : '') + ').';
+      }
+      syncCooldownPreview(months);
+    } else {
+      cooldownEl.readOnly = false;
+      cooldownEl.classList.remove('bg-light');
+      if (!cooldownEl.value || parseInt(cooldownEl.value, 10) < 1) {
+        cooldownEl.value = '3';
+      }
+      if (hintEl) {
+        hintEl.textContent = e
+          ? 'End date must be on or after Start date.'
+          : 'No End date — enter cooldown manually (default 3 months).';
+      }
+      syncCooldownPreview(parseInt(cooldownEl.value, 10) || null);
+    }
+  }
+
+  /* ── Flatpickr — Start Date ── */
+  const fpStart = flatpickr('#id_start_date', {
+    dateFormat: 'Y-m-d',
+    allowInput: true,
+    disableMobile: true,
+    onReady(_, __, fp) { addQuickBar(fp, { showToday: true, showClear: true }); },
+    onChange(dates) {
+      // keep end-date min in sync
+      if (dates.length) fpEnd.set('minDate', dates[0]);
+      updateDuration();
+      updateCooldownFromDates();
+      updateRules();
+    }
+  });
+
+  /* ── Flatpickr — End Date ── */
+  const fpEnd = flatpickr('#id_end_date', {
+    dateFormat: 'Y-m-d',
+    allowInput: true,
+    disableMobile: true,
+    onReady(_, __, fp) { addQuickBar(fp, { showToday: true, showClear: true }); },
+    onChange() {
+      updateDuration();
+      updateCooldownFromDates();
+      updateRules();
+    }
+  });
+
+  /* ── Calendar icon triggers ── */
+  document.getElementById('btnPickStart')?.addEventListener('click', () => fpStart.open());
+  document.getElementById('btnPickEnd')?.addEventListener('click', () => fpEnd.open());
 
   /* ── Description char counter ── */
   const descTa  = $('id_description');
@@ -388,12 +524,60 @@
     fn(el.value);
   }
 
+  function updateRules() {
+    const active = !!$('id_is_active')?.checked;
+    const s = $('id_start_date')?.value?.trim() || '';
+    const e = $('id_end_date')?.value?.trim() || '';
+    const cooldown = parseInt($('id_grant_cooldown_months')?.value, 10) || 3;
+
+    const ruleActive = $('ruleActive');
+    const ruleActiveDesc = $('ruleActiveDesc');
+    if (ruleActive && ruleActiveDesc) {
+      ruleActive.classList.toggle('off', !active);
+      ruleActiveDesc.textContent = active
+        ? 'Program is Active — eligible beneficiaries can receive grants.'
+        : 'Program is Inactive — grants cannot be assigned until it is turned on.';
+    }
+
+    const ruleSchedule = $('ruleSchedule');
+    const ruleScheduleDesc = $('ruleScheduleDesc');
+    if (ruleSchedule && ruleScheduleDesc) {
+      if (!s) {
+        ruleSchedule.classList.add('off');
+        ruleScheduleDesc.textContent = 'Set a Start Date so the program schedule is defined.';
+      } else if (e && parseYmd(e) && parseYmd(s) && parseYmd(e) < parseYmd(s)) {
+        ruleSchedule.classList.add('off');
+        ruleScheduleDesc.textContent = 'End date must be on or after the start date.';
+      } else if (e) {
+        ruleSchedule.classList.remove('off');
+        ruleScheduleDesc.textContent = 'Available from ' + s + ' through ' + e + '.';
+      } else {
+        ruleSchedule.classList.remove('off');
+        ruleScheduleDesc.textContent = 'Available from ' + s + ' onward (ongoing — no end date).';
+      }
+    }
+
+    const mo = cooldown + ' month' + (cooldown !== 1 ? 's' : '');
+    const cooldownDesc = $('ruleCooldownDesc');
+    if (cooldownDesc) {
+      cooldownDesc.textContent =
+        'Must not have received a grant within the last ' + mo + '.';
+    }
+    const householdDesc = $('ruleHouseholdDesc');
+    if (householdDesc) {
+      householdDesc.textContent =
+        'No family member may have received a grant within the last ' + mo +
+        ' (one grant per household).';
+    }
+  }
+
   bindLive('id_name', v => setVal('previewName', v.trim(), 'Not set'));
   bindLive('id_budget', v => setVal('previewBudget', fmt(v), '—'));
   bindLive('id_income_threshold', v => setVal('previewThreshold', fmt(v), '—'));
   bindLive('id_grant_cooldown_months', v => {
-    const n = parseInt(v);
-    setVal('previewCooldown', n ? n + ' month' + (n !== 1 ? 's' : '') : null, '—');
+    const n = parseInt(v, 10);
+    syncCooldownPreview(n);
+    updateRules();
   });
 
   function updateDuration() {
@@ -410,10 +594,16 @@
     }
   }
   updateDuration();
+  updateCooldownFromDates();
+  updateRules();
 
-  /* also update duration when user types directly into date inputs */
+  /* also update when user types directly into date inputs */
   ['id_start_date', 'id_end_date'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', updateDuration);
+    document.getElementById(id)?.addEventListener('input', () => {
+      updateDuration();
+      updateCooldownFromDates();
+      updateRules();
+    });
   });
 
   /* ── Active toggle preview ── */
@@ -424,6 +614,7 @@
     el.innerHTML = activeChk?.checked
       ? '<span class="status-pill active"><i class="bi bi-check-circle-fill"></i> Active</span>'
       : '<span class="status-pill inactive"><i class="bi bi-x-circle-fill"></i> Inactive</span>';
+    updateRules();
   };
   activeChk?.addEventListener('change', updateStatus);
   updateStatus();

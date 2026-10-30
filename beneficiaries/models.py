@@ -206,6 +206,16 @@ class FamilyMember(models.Model):
         null=True,
         blank=True,
         verbose_name="Beneficiary",
+        help_text="Linked when the relative is already enrolled as a beneficiary.",
+    )
+    citizen = models.ForeignKey(
+        "citizens.Citizen",
+        on_delete=models.SET_NULL,
+        related_name="beneficiary_family_links",
+        null=True,
+        blank=True,
+        verbose_name="Citizen",
+        help_text="Citizen registry person — may be linked even if not yet enrolled.",
     )
     relationship = models.CharField(max_length=50, choices=RELATIONSHIP_CHOICES)
     age = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -214,8 +224,25 @@ class FamilyMember(models.Model):
         ordering = ["relationship"]
 
     def __str__(self):
-        name = self.member.full_name if self.member_id else "(unset)"
+        name = self.display_name()
         return f"{name} ({self.relationship})"
+
+    def display_name(self):
+        if self.member_id:
+            return self.member.full_name
+        if self.citizen_id:
+            return self.citizen.full_name
+        return "(unset)"
+
+    def resolve_member_beneficiary(self):
+        """Return the enrolled beneficiary for this link, if any."""
+        if self.member_id:
+            return self.member
+        if self.citizen_id:
+            return (
+                Beneficiary.objects.filter(citizen_id=self.citizen_id).first()
+            )
+        return None
 
 
 class BeneficiaryFingerprint(models.Model):

@@ -16,16 +16,42 @@ from records.models import GrantRecord
 
 def build_family_components():
     """Return a list of families, each a list of beneficiary ids, over ALL
-    beneficiaries (connected components of the family-link graph)."""
+    beneficiaries (connected components of the family-link graph).
+
+    Links may point at an enrolled beneficiary (``member``) or at a citizen
+    who later enrolled — citizen-only rows resolve via the citizen→beneficiary map.
+    """
     ids = list(Beneficiary.objects.values_list("id", flat=True))
     adj = {i: set() for i in ids}
+    ben_by_citizen = {
+        cid: bid
+        for cid, bid in (
+            Beneficiary.objects.exclude(citizen__isnull=True)
+            .values_list("citizen_id", "id")
+        )
+    }
+
+    def _link(a, b):
+        if a in adj and b in adj and a != b:
+            adj[a].add(b)
+            adj[b].add(a)
+
     for a, b in (
         FamilyMember.objects.exclude(member__isnull=True)
         .values_list("beneficiary_id", "member_id")
     ):
-        if a in adj and b in adj:
-            adj[a].add(b)
-            adj[b].add(a)
+        _link(a, b)
+
+    # Citizen-only family rows — connect once that citizen is enrolled.
+    for a, citizen_id in (
+        FamilyMember.objects.filter(member__isnull=True)
+        .exclude(citizen__isnull=True)
+        .values_list("beneficiary_id", "citizen_id")
+    ):
+        b = ben_by_citizen.get(citizen_id)
+        if b is not None:
+            _link(a, b)
+
     seen, comps = set(), []
     for i in ids:
         if i in seen:

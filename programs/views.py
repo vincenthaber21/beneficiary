@@ -61,6 +61,17 @@ def program_list(request):
     return render(request, "programs/list.html", {"programs": programs})
 
 
+def _program_form_context(form, action, program=None):
+    ctx = {
+        "form": form,
+        "action": action,
+        "valid_classes": VALID_CLASSES,
+    }
+    if program is not None:
+        ctx["program"] = program
+    return ctx
+
+
 @admin_required
 def program_create(request):
     form = AssistanceProgramForm(request.POST or None)
@@ -68,7 +79,7 @@ def program_create(request):
         form.save()
         messages.success(request, "Assistance program created successfully.")
         return redirect("programs:list")
-    return render(request, "programs/form.html", {"form": form, "action": "Add"})
+    return render(request, "programs/form.html", _program_form_context(form, "Add"))
 
 
 @admin_required
@@ -79,7 +90,11 @@ def program_update(request, pk):
         form.save()
         messages.success(request, "Program updated successfully.")
         return redirect("programs:list")
-    return render(request, "programs/form.html", {"form": form, "action": "Edit", "program": program})
+    return render(
+        request,
+        "programs/form.html",
+        _program_form_context(form, "Edit", program),
+    )
 
 
 @admin_required

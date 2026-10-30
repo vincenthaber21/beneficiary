@@ -4,7 +4,7 @@ import re
 from types import SimpleNamespace
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
@@ -48,6 +48,21 @@ def _get_family_groups(beneficiaries):
     ):
         adj[ben_id].add(mem_id)
         adj[mem_id].add(ben_id)
+
+    # Citizen-only links: connect once that citizen is enrolled in this result set.
+    citizen_to_ben = {
+        b.citizen_id: b.pk for b in beneficiaries if b.citizen_id
+    }
+    for ben_id, citizen_id in (
+        FamilyMember.objects
+        .filter(beneficiary_id__in=ben_pks, member__isnull=True)
+        .exclude(citizen__isnull=True)
+        .values_list("beneficiary_id", "citizen_id")
+    ):
+        mem_id = citizen_to_ben.get(citizen_id)
+        if mem_id and mem_id in adj and ben_id in adj and mem_id != ben_id:
+            adj[ben_id].add(mem_id)
+            adj[mem_id].add(ben_id)
 
     visited = set()
     raw_groups = []
@@ -170,6 +185,19 @@ def _filtered_beneficiary_queryset(request):
     ):
         linked_ids.add(a)
         linked_ids.add(b)
+    citizen_to_ben = dict(
+        Beneficiary.objects.exclude(citizen__isnull=True)
+        .values_list("citizen_id", "id")
+    )
+    for a, citizen_id in (
+        FamilyMember.objects.filter(member__isnull=True)
+        .exclude(citizen__isnull=True)
+        .values_list("beneficiary_id", "citizen_id")
+    ):
+        linked_ids.add(a)
+        b = citizen_to_ben.get(citizen_id)
+        if b:
+            linked_ids.add(b)
     if fam == "family":
         qs = qs.filter(pk__in=linked_ids)
     elif fam == "individual":
@@ -459,6 +487,7 @@ def beneficiary_create(request):
         "form": form, "formset": formset, "action": "Add",
         "fingerprint_formset": fingerprint_formset,
         "card": _build_form_card(),
+        "valid_classes": VALID_CLASSES,
         "valid_classes_json": json.dumps(VALID_CLASSES),
         "citizen_lookup_url": reverse("beneficiaries:citizen_lookup"),
         "available_citizen_count": available_count,
@@ -533,15 +562,43 @@ def beneficiary_update(request, pk):
     #  • forward  → people listed as this person's family members
     #  • reverse  → other beneficiaries who list this person as their family member
     family_connections = []
-    seen_person_ids = set()
-    for fm in ben.family_members.filter(member__isnull=False).select_related("member"):
-        family_connections.append({"person": fm.member, "relationship": fm.relationship, "age": fm.age})
-        seen_person_ids.add(fm.member_id)
-    for fm in ben.member_of.filter(member__isnull=False).select_related("beneficiary"):
-        if fm.beneficiary_id in seen_person_ids:
+    seen_keys = set()
+    for fm in (
+        ben.family_members
+        .filter(Q(member__isnull=False) | Q(citizen__isnull=False))
+        .select_related("member", "citizen")
+    ):
+        person = fm.member or fm.citizen
+        if not person:
             continue
-        family_connections.append({"person": fm.beneficiary, "relationship": fm.relationship, "age": fm.age})
-        seen_person_ids.add(fm.beneficiary_id)
+        key = f"b:{fm.member_id}" if fm.member_id else f"c:{fm.citizen_id}"
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        family_connections.append({
+            "person": person,
+            "relationship": fm.relationship,
+            "age": fm.age,
+            "enrolled": bool(fm.member_id),
+            "detail_url": (
+                reverse("beneficiaries:detail", args=[fm.member_id])
+                if fm.member_id else
+                reverse("citizens:detail", args=[fm.citizen_id])
+                if fm.citizen_id else ""
+            ),
+        })
+    for fm in ben.member_of.filter(member__isnull=False).select_related("beneficiary"):
+        key = f"b:{fm.beneficiary_id}"
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        family_connections.append({
+            "person": fm.beneficiary,
+            "relationship": fm.relationship,
+            "age": fm.age,
+            "enrolled": True,
+            "detail_url": reverse("beneficiaries:detail", args=[fm.beneficiary_id]),
+        })
     return render(request, "beneficiaries/form.html", {
         "form": form, "formset": formset, "action": "Edit", "beneficiary": ben,
         "fingerprint_formset": fingerprint_formset,
@@ -549,6 +606,7 @@ def beneficiary_update(request, pk):
         "existing_family_members": family_connections,
         "last_system_grant": last_system_grant.isoformat() if last_system_grant else "",
         "family_blocker": family_blocker or "",
+        "valid_classes": VALID_CLASSES,
         "valid_classes_json": json.dumps(VALID_CLASSES),
         "citizen_lookup_url": reverse("beneficiaries:citizen_lookup"),
         "available_citizen_count": available_citizen_count(ben.pk),
@@ -580,7 +638,13 @@ def beneficiary_search(request):
     q = request.GET.get("q", "").strip()
     exclude = request.GET.get("exclude", "").strip()
     exclude_pk = int(exclude) if exclude.isdigit() else None
-    results = search_beneficiaries(q, exclude_pk=exclude_pk)
+    exclude_citizen = request.GET.get("exclude_citizen", "").strip()
+    exclude_citizen_pk = int(exclude_citizen) if exclude_citizen.isdigit() else None
+    results = search_beneficiaries(
+        q,
+        exclude_pk=exclude_pk,
+        exclude_citizen_pk=exclude_citizen_pk,
+    )
     return JsonResponse({
         "ok": True,
         "query": q,
@@ -710,7 +774,7 @@ def _age_from_dob(dob, today=None):
 def _citizen_household_for_enroll(citizen, exclude_beneficiary_pk=None):
     """
     Build household rows from Citizen Family Composition for the enroll form.
-    Enrolled relatives can be linked as beneficiary family members automatically.
+    Registry relatives (enrolled or not) can be linked as family members.
     """
     from citizens.models import CitizenFamilyMember
 
@@ -757,6 +821,19 @@ def _citizen_household_for_enroll(citizen, exclude_beneficiary_pk=None):
         rel = _map_ben_relationship(relationship, invert=invert_rel)
         if age is None and citizen_obj is not None:
             age = _age_from_dob(citizen_obj.date_of_birth, today)
+        label = ""
+        if ben:
+            label = (
+                f"{ben.rfid_id or (citizen_obj.registry_no if citizen_obj else '') or '—'} — "
+                f"{ben.last_name}, {ben.first_name}"
+                + (f" ({ben.beneficiary_class})" if ben.beneficiary_class else "")
+            )
+        elif citizen_obj:
+            label = (
+                f"{citizen_obj.registry_no or '—'} — {citizen_obj.last_name}, "
+                f"{citizen_obj.first_name}"
+                + (f" {citizen_obj.middle_name}" if citizen_obj.middle_name else "")
+            )
         rows.append({
             "name": name,
             "relationship": rel or "Other",
@@ -764,12 +841,10 @@ def _citizen_household_for_enroll(citizen, exclude_beneficiary_pk=None):
             "citizen_id": citizen_obj.pk if citizen_obj else None,
             "registry_no": (citizen_obj.registry_no if citizen_obj else "") or "",
             "beneficiary_id": ben.pk if ben else None,
-            "beneficiary_label": (
-                f"{ben.last_name}, {ben.first_name}"
-                + (f" ({ben.beneficiary_class})" if ben and ben.beneficiary_class else "")
-            ) if ben else "",
+            "beneficiary_label": label,
             "enrolled": bool(ben),
-            "can_link": bool(ben),
+            # Link anyone already in the citizen registry (enrolled optional).
+            "can_link": bool(citizen_obj),
         })
 
     for fm in forward:
@@ -857,12 +932,12 @@ def beneficiary_detail(request, pk):
         received_grant_within_3_months=received_recent,
         household_blocker_name=family_blocker,
     )
-    # Family connections (both directions)
+    # Family connections (both directions) — enrolled and citizen-only
     family_members = (
         ben.family_members
-        .filter(member__isnull=False)
-        .select_related("member")
-        .order_by("relationship", "member__last_name")
+        .filter(Q(member__isnull=False) | Q(citizen__isnull=False))
+        .select_related("member", "citizen")
+        .order_by("relationship", "member__last_name", "citizen__last_name")
     )
     also_in_families = (
         ben.member_of
